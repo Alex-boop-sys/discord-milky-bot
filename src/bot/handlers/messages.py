@@ -111,6 +111,8 @@ class MessageHandlers:
                         return
                     if await admin_commands.handle(message, request):
                         return
+                    if request.startswith((".", "/", "-", "!", ":", ";")):
+                        return
                     if not await self._cooldown_ok(message):
                         return
                     async with message.channel.typing():
@@ -141,6 +143,9 @@ class MessageHandlers:
             if await admin_commands.handle(message, request):
                 return
 
+            if request.startswith((".", "/", "-", "!", ":", ";")):
+                return
+
             if not await self._cooldown_ok(message):
                 return
 
@@ -164,6 +169,9 @@ class MessageHandlers:
                     return
 
                 if await admin_commands.handle(message, request):
+                    return
+
+                if request.startswith((".", "/", "-", "!", ":", ";")):
                     return
 
                 if not await self._cooldown_ok(message):
