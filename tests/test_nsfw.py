@@ -1,8 +1,13 @@
 """NSFW-фильтры и выбор рейтинга для артов."""
+import asyncio
+
 import pytest
 
-from src.features.art_search import force_safe_rating
+from src.features.art_search import art_search, force_safe_rating
+from src.features.image_generation import image_generation
+from src.utils.json_parser import dicts
 from src.utils.utils import utils
+from tests.helpers import make_message
 
 
 @pytest.mark.parametrize(
@@ -42,3 +47,15 @@ def test_is_nsfw_channel():
     assert utils.is_nsfw_channel(_Channel(False)) is False
     assert utils.is_nsfw_channel(_DM()) is False   # ЛС считаем обычным каналом
     assert utils.is_nsfw_channel(None) is False    # канал неизвестен
+
+
+def test_art_search_refuses_nsfw_in_ordinary_channel():
+    message = make_message("арт", nsfw=False)
+    asyncio.run(art_search.art(message, "nsfw лиса"))
+    message.reply.assert_awaited_once_with(dicts.get("nsfw_rejection"))   # и до сети дело не дошло
+
+
+def test_image_generation_refuses_nsfw_in_ordinary_channel():
+    message = make_message("ген", nsfw=False)
+    asyncio.run(image_generation.generate(message, "nsfw wolf"))
+    message.reply.assert_awaited_once_with(dicts.get("nsfw_rejection"))

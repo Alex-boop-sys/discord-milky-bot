@@ -1,6 +1,5 @@
 """Проверки сборки бота: без подключения к Discord."""
 import asyncio
-from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -14,6 +13,7 @@ from src.features import discord_actions
 from src.features.discord_actions import Defs
 from src.utils.cooldown import Cooldown
 from src.utils.utils import HIDDEN_USER_NAME, utils
+from tests.helpers import BOT, FakeChannel, make_message
 
 
 def test_bot_never_pings_everyone_or_roles():
@@ -37,18 +37,6 @@ def test_setup_hook_syncs_commands_once(monkeypatch):
     sync.assert_awaited_once()
 
 
-class FakeChannel:
-    def __init__(self, nsfw=False):
-        self._nsfw = nsfw
-
-    def is_nsfw(self):
-        return self._nsfw
-
-    @asynccontextmanager
-    async def typing(self):
-        yield
-
-
 @pytest.fixture
 def fake_features(monkeypatch):
     art, gen = AsyncMock(), AsyncMock()
@@ -59,7 +47,7 @@ def fake_features(monkeypatch):
 
 def run_trigger(text, nsfw_channel=False):
     message = SimpleNamespace(channel=FakeChannel(nsfw_channel), reply=AsyncMock())
-    handled = asyncio.run(MessageHandlers.handle_triggers(message, text, None))
+    handled = asyncio.run(MessageHandlers.handle_triggers(message, text))
     return handled, message
 
 
@@ -85,19 +73,12 @@ def test_generation_trigger_calls_image_generation(fake_features):
     gen.assert_awaited_once_with(message, "про осень")
 
 
-def test_nsfw_request_is_refused_in_ordinary_channel(fake_features):
+def test_trigger_passes_nsfw_text_to_art_search(fake_features):
+    # Решение «можно ли NSFW в этом канале» принимает сам art_search (см. test_nsfw.py).
     art, _ = fake_features
     handled, message = run_trigger("арт nsfw лиса", nsfw_channel=False)
     assert handled is True
-    art.assert_not_called()
-    message.reply.assert_awaited_once()
-
-
-def test_nsfw_request_is_allowed_in_nsfw_channel(fake_features):
-    art, _ = fake_features
-    handled, _ = run_trigger("арт nsfw лиса", nsfw_channel=True)
-    assert handled is True
-    art.assert_awaited_once()
+    art.assert_awaited_once_with(message, "nsfw лиса")
 
 
 # ---------- несколько серверов -------------------------------------------------
@@ -162,18 +143,6 @@ def test_slash_cooldown_answers_privately(monkeypatch):
 
 # ---------- обращения к боту: сервер и таймер -----------------------------------------
 
-BOT = SimpleNamespace(id=999)
-
-
-def make_chat_message(content, reference=None):
-    channel = FakeChannel()
-    channel.fetch_message = AsyncMock(return_value=SimpleNamespace(author=SimpleNamespace(id=BOT.id)))
-    return SimpleNamespace(
-        id=1, content=content, reference=reference, attachments=[], channel=channel,
-        author=SimpleNamespace(id=5, display_name="Алекс"), reply=AsyncMock(),
-    )
-
-
 def test_messages_from_unknown_servers_are_ignored(monkeypatch):
     monkeypatch.setattr(var, "allowed_guild_ids", [1])
     check = AsyncMock()
@@ -184,21 +153,21 @@ def test_messages_from_unknown_servers_are_ignored(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "content, reference",
+    "content, reply_to",
     [
         ("Милки, привет", None),                           # обращение по имени
         (f"<@{BOT.id}> привет", None),                     # через @
-        ("привет", SimpleNamespace(message_id=7)),         # ответом на сообщение бота
+        ("привет", "bot"),                                 # ответом на сообщение бота
     ],
 )
-def test_every_way_to_chat_is_limited_by_cooldown(monkeypatch, content, reference):
+def test_every_way_to_chat_is_limited_by_cooldown(monkeypatch, content, reply_to):
     monkeypatch.setattr(var, "user_cooldown_seconds", 5)
     monkeypatch.setattr(env, "owner_ids", [])
     monkeypatch.setattr(messages_module, "cooldown", Cooldown())
     ask = AsyncMock(return_value="ответ")
     monkeypatch.setattr(messages_module.api, "ask_ai", ask)
 
-    message = make_chat_message(content, reference)
+    message = make_message(content, reply_to=reply_to)
     handlers = MessageHandlers()
     for _ in range(3):                                     # три обращения подряд
         asyncio.run(handlers.check_ping(message, BOT))

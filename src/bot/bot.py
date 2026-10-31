@@ -53,7 +53,7 @@ class BotHandlers:
 
         @bot.event
         async def on_message(message):
-            await handlers.on_msg(message)
+            await handlers.on_msg(message, bot.user)
 
         @bot.event
         async def on_ready():

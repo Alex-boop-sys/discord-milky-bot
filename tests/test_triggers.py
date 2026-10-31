@@ -1,7 +1,7 @@
 """Распознавание команд в тексте: арт и генерация картинки."""
 import pytest
 
-from src.utils.triggers import match_trigger
+from src.utils.triggers import looks_like_foreign_command, match_trigger
 
 
 @pytest.mark.parametrize(
@@ -39,3 +39,24 @@ def test_triggers_are_recognized(text, expected):
 )
 def test_ordinary_messages_are_not_triggers(text):
     assert match_trigger(text) is None
+
+
+@pytest.mark.parametrize("text", ["!play song", ".r d20", "/help", "/ген кошка", "-skip", ";p", "\\не отвечай", "\\", "  !play"])
+def test_foreign_bot_commands_are_recognized(text):
+    assert looks_like_foreign_command(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["привет", ": привет", "- привет", "! привет", "...ну ладно", ":)", ";)", "!!!", "!", "-", "", "   ", "как дела?", "2+2"],
+)
+def test_ordinary_text_is_not_a_foreign_command(text):
+    assert not looks_like_foreign_command(text)
+
+
+def test_prefix_list_is_configurable(monkeypatch):
+    from config import var
+
+    monkeypatch.setattr(var, "ignored_prefixes", ("$",))
+    assert looks_like_foreign_command("$bal")
+    assert not looks_like_foreign_command("!play")
