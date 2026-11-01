@@ -23,3 +23,16 @@ _TMP = tempfile.mkdtemp(prefix="milky_tests_")
 config.paths.db_path = os.path.join(_TMP, "history.db")
 config.paths.economy_db = os.path.join(_TMP, "economy.db")
 config.paths.morning_greetings_state = os.path.join(_TMP, "morning_state.json")
+config.paths.ignored_users = os.path.join(_TMP, "ignored_users.json")
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture
+def world(monkeypatch):
+    """Два сервера, три канала и два сообщения; владелец бота - пользователь OWNER."""
+    from tests.admin_helpers import OWNER, World
+
+    monkeypatch.setattr(config.env, "owner_ids", [OWNER])
+    return World()

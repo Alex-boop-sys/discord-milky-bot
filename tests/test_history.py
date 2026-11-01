@@ -77,3 +77,14 @@ def test_old_database_format_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "db_path", str(old_db))
     with pytest.raises(RuntimeError, match="старый формат"):
         HistoryService()
+
+
+def test_summary_for_status_command(hist):
+    assert hist.get_summary() == {"history_rows": 0, "users": 0, "total_messages": 0}
+    hist.build_messages(1, "А", "привет")
+    hist.save_response(1, "ответ")
+    hist.build_messages(2, "Б", "привет")
+    summary = hist.get_summary()
+    assert summary == {"history_rows": 3, "users": 2, "total_messages": 2}
+    hist.clear_history(1)                                   # забыть удаляет записи, но не статистику
+    assert hist.get_summary() == {"history_rows": 1, "users": 2, "total_messages": 2}

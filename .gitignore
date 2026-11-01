@@ -231,6 +231,7 @@ __pycache__/
 /resources/history.db
 /resources/economy.db
 /resources/morning_greetings_state.json
+/resources/ignored_users.json
 
 # Секреты окружения не должны попадать в архив или репозиторий
 .env

@@ -18,13 +18,13 @@ def test_required_files_exist():
         "requirements.txt",
         ".env.example",
         "resources/dicts.json",
-        "resources/ignored_users.json",
+        "resources/ignored_users.example.json",
     ):
         assert (ROOT / relative).is_file(), f"нет файла {relative}"
 
 
 def test_json_resources_are_valid():
     # Если в JSON потерялась запятая или кавычка, бот упадёт при запуске.
-    for name in ("dicts.json", "ignored_users.json"):
+    for name in ("dicts.json", "ignored_users.example.json"):
         with open(ROOT / "resources" / name, encoding="utf-8") as f:
             json.load(f)

@@ -117,4 +117,3 @@ if __name__ == "__main__":
     debugger.execute_cycle()
 
 dicts = JsonReader(paths.dicts, is_required=True)
-ignored_users = JsonReader(paths.ignored_users, is_required=False)

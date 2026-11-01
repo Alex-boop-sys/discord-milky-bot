@@ -1,14 +1,14 @@
 """Основная обработка входящих сообщений и обращений к Милки.
 
 Путь сообщения:
-    on_msg -> проверки (сервер, бамп-боты, игнор-лист)
+    on_msg -> проверки (сервер, бамп-боты, другие боты)
            -> find_request: обращаются ли к Милки и каков текст запроса
+           -> игнор-лист (только для настоящих обращений)
            -> respond: пустой запрос / чужая команда / админ-команда / таймер /
                        слово-команда (арт, генерация) / ответ ИИ
 """
 
 import math
-from datetime import datetime, timezone
 
 import discord
 
@@ -20,8 +20,9 @@ from src.features.economy import economy
 from src.features.image_generation import image_generation
 from src.features.morning_greetings import morning_greetings
 from src.services.ai import api
+from src.services.ignore_list import ignore_list
 from src.utils.cooldown import cooldown
-from src.utils.json_parser import dicts, ignored_users
+from src.utils.json_parser import dicts
 from src.utils.logger import log, place_name, set_place
 from src.utils.triggers import looks_like_foreign_command, match_trigger
 from src.utils.utils import utils
@@ -52,7 +53,8 @@ class MessageHandlers:
         # а для экономики их подтверждения необходимы.
         await self.handle_economy(message)
 
-        if self.check_ignore(message):
+        # Другие боты (и сам Милки) нас не интересуют.
+        if message.author.bot:
             return
 
         # В личных сообщениях у message.guild нет значения, поэтому запасной вариант
@@ -121,6 +123,13 @@ class MessageHandlers:
         if address is None:
             return
         kind, request = address
+
+        # Игнор-лист проверяем только для настоящих обращений: так в логе нет записи
+        # на каждое сообщение забаненного человека, а лишних запросов к Discord меньше.
+        if ignore_list.is_ignored(message.author.id):
+            log.info(f"Игнорирую обращение пользователя {message.author.id}")
+            return
+
         try:
             await self.respond(message, kind, request)
         except discord.Forbidden:
@@ -239,36 +248,6 @@ class MessageHandlers:
             else:
                 await image_generation.generate(message, text or None)
         return True
-
-    # ------------------------------------------------------------ игнор-лист
-
-    @staticmethod
-    def check_ignore(message):
-        """True, если сообщение нужно пропустить: бот или пользователь из игнор-листа."""
-        if message.author.bot:  # в том числе сам Милки
-            return True
-
-        entry = ignored_users.get("ignored_users", {}).get(str(message.author.id))
-        if entry is None or MessageHandlers._ignore_expired(entry):
-            return False
-
-        log.info(f"Попытка обращения игнорируемого пользователя {message.author.id}")
-        return True
-
-    @staticmethod
-    def _ignore_expired(entry):
-        """Истёк ли срок игнорирования. Записи без срока бессрочные."""
-        expires_at = entry.get("expires_at")
-        if not expires_at:
-            return False
-        try:
-            expires = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-        except ValueError:
-            log.warning(f"Некорректная дата expires_at в ignored_users.json: {expires_at!r}")
-            return False  # лучше оставить игнор, чем случайно снять его
-        if expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
-        return datetime.now(timezone.utc) >= expires
 
 
 handlers = MessageHandlers()

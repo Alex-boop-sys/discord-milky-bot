@@ -52,7 +52,6 @@ class Paths:
         self.data = os.path.join(self.root, "data")
         self.logs = os.path.join(self.root, "logs")
         self.dicts = os.path.join(self.resources, "dicts.json")
-        self.ignored_users = os.path.join(self.resources, "ignored_users.json")
 
         # Базы и состояние отделены от ресурсов приложения.
         self.db_path = os.path.join(self.data, "history.db")
@@ -60,6 +59,9 @@ class Paths:
         self.morning_greetings_state = os.path.join(
             self.data, "morning_greetings_state.json"
         )
+        # Список игнорируемых пользователей (ID, ники, причины) - личные данные,
+        # поэтому он лежит в data/ и в git не попадает. Образец: resources/*.example.json
+        self.ignored_users = os.path.join(self.data, "ignored_users.json")
 
         os.makedirs(self.resources, exist_ok=True)
         os.makedirs(self.data, exist_ok=True)
@@ -73,6 +75,7 @@ class Paths:
             os.path.join(
                 self.resources, "morning_greetings_state.json"
             ): self.morning_greetings_state,
+            os.path.join(self.resources, "ignored_users.json"): self.ignored_users,
         }
         for old_path, new_path in legacy_files.items():
             if os.path.isfile(old_path) and not os.path.exists(new_path):

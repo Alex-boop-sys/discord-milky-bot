@@ -1,5 +1,9 @@
 # src/services/ai.py
 
+import asyncio
+import time
+from collections import namedtuple
+
 import aiohttp
 
 from config import env, var
@@ -20,6 +24,10 @@ def _is_emoji(ch: str) -> bool:
         or 0x2600 <= code <= 0x27BF  # символы и dingbats (☀ ✨ ❤ и т.п.)
         or code in (0xFE0F, 0x200D)  # вариационный селектор и склейка эмодзи
     )
+
+
+# Итог проверки одного провайдера: status - "ok", "fail" или "no_key".
+ProviderCheck = namedtuple("ProviderCheck", "provider model status seconds")
 
 
 class Api:
@@ -258,6 +266,55 @@ class Api:
                 log.getChild("ZAI").warning(f"Исключение: {e}")
                 return None
 
+    # ВЫЗОВ ПРОВАЙДЕРА ПО ИМЕНИ
+    async def call_provider(self, provider, model, messages):
+        """Вызывает нужного провайдера. Для неизвестного пишет в лог и возвращает None."""
+        callers = {
+            "cloudflare": self._call_cloudflare,
+            "zai": self._call_zai,
+            "openrouter": self._call_openrouter,
+            "groq": self._call_groq,
+        }
+        caller = callers.get(provider)
+        if caller is None:
+            log.warning(f"Неизвестный провайдер: {provider}")
+            return None
+        return await caller(model, messages)
+
+    # ПРОВЕРКА ПРОВАЙДЕРОВ (для админ-команды root# ai)
+    @staticmethod
+    def has_credentials(provider):
+        """Заданы ли в .env ключи для провайдера."""
+        if provider == "cloudflare":
+            return bool(env.cloudflare_account_id and env.cloudflare_api_token)
+        keys = {
+            "zai": env.zai_api_key,
+            "openrouter": env.openrouter_api_key,
+            "groq": env.groq_api_key,
+        }
+        return bool(keys.get(provider))
+
+    async def check_providers(self):
+        """Один короткий запрос к каждому провайдеру из цепочки, все сразу.
+
+        Ничего не пишет в историю. Возвращает список ProviderCheck в порядке цепочки.
+        """
+        messages = [{"role": "user", "content": "Ответь одним словом: ок"}]
+
+        async def probe(provider, model):
+            if not self.has_credentials(provider):
+                return ProviderCheck(provider, model, "no_key", 0.0)
+            started = time.monotonic()
+            try:
+                result = await self.call_provider(provider, model, messages)
+            except Exception as exc:
+                log.getChild(provider.upper()).warning(f"Проверка {model}: {exc}")
+                result = None
+            ok = isinstance(result, str) and bool(result.strip())
+            return ProviderCheck(provider, model, "ok" if ok else "fail", time.monotonic() - started)
+
+        return list(await asyncio.gather(*(probe(p, m) for p, m in var.fallback_models)))
+
     # ОТДЕЛЬНЫЙ ЗАПРОС ИИ БЕЗ ИСТОРИИ ДИАЛОГА
     async def ask_standalone(self, message, system_prompt=None):
         """Запрашивает отдельный ответ, не записывая его в историю пользователя."""
@@ -270,17 +327,7 @@ class Api:
         for provider, model in var.fallback_models:
             provider_name = provider.upper()
             try:
-                if provider == "cloudflare":
-                    result = await self._call_cloudflare(model, messages)
-                elif provider == "zai":
-                    result = await self._call_zai(model, messages)
-                elif provider == "openrouter":
-                    result = await self._call_openrouter(model, messages)
-                elif provider == "groq":
-                    result = await self._call_groq(model, messages)
-                else:
-                    log.warning(f"Неизвестный провайдер: {provider}")
-                    continue
+                result = await self.call_provider(provider, model, messages)
 
                 if result and isinstance(result, str) and result.strip():
                     result = result.strip()
@@ -302,17 +349,7 @@ class Api:
             try:
                 log.getChild(provider_name).info(f"Использование модели {model}")
 
-                if provider == "cloudflare":
-                    result = await self._call_cloudflare(model, messages)
-                elif provider == "zai":
-                    result = await self._call_zai(model, messages)
-                elif provider == "openrouter":
-                    result = await self._call_openrouter(model, messages)
-                elif provider == "groq":
-                    result = await self._call_groq(model, messages)
-                else:
-                    log.warning(f"Неизвестный провайдер: {provider}")
-                    continue
+                result = await self.call_provider(provider, model, messages)
 
                 if result:
                     if result in dicts.get("censor_phrases"):

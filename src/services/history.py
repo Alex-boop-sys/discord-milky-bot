@@ -113,6 +113,14 @@ class HistoryService:
             )
         return cursor.rowcount > 0
 
+    def get_summary(self):
+        """Сводка для админ-команды status: записей в истории, людей и обращений в статистике."""
+        rows = self.conn.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+        users, total = self.conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(message_count), 0) FROM user_stats"
+        ).fetchone()
+        return {"history_rows": rows, "users": users, "total_messages": total}
+
     def get_top_users(self, limit=10):
         rows = self.conn.execute(
             "SELECT user_id, message_count FROM user_stats ORDER BY message_count DESC LIMIT ?",

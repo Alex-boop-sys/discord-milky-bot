@@ -2,7 +2,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import discord
 import pytest
@@ -10,6 +10,7 @@ import pytest
 from config import env, var
 from src.bot.handlers import messages as messages_module
 from src.bot.handlers.messages import MessageHandlers
+from src.services.ignore_list import IgnoreList
 from src.utils.cooldown import Cooldown
 from src.utils.json_parser import dicts
 from tests.helpers import BOT, make_message
@@ -159,40 +160,60 @@ def test_missing_permissions_do_not_crash_the_bot(ask):
 
 # --------------------------------------------------------------- игнор-лист
 
-def with_ignore_list(monkeypatch, entries):
-    data = {"ignored_users": entries}
-    monkeypatch.setattr(messages_module, "ignored_users", SimpleNamespace(get=lambda key, default=None: data.get(key, default)))
+@pytest.fixture
+def ignores(monkeypatch, tmp_path):
+    """Игнор-лист во временной папке и «записыватель» в лог, чтобы проверять сообщения."""
+    ignore_list = IgnoreList(str(tmp_path / "ignored.json"))
+    monkeypatch.setattr(messages_module, "ignore_list", ignore_list)
+    monkeypatch.setattr(messages_module, "log", SimpleNamespace(info=Mock(), warning=Mock(), error=Mock()))
+    return ignore_list
 
 
-def fake_author(user_id=5, bot=False):
-    return SimpleNamespace(author=SimpleNamespace(id=user_id, bot=bot))
+@pytest.mark.parametrize("path, build", PATHS, ids=[p for p, _ in PATHS])
+def test_ignored_user_gets_no_answer_by_any_path(ask, ignores, path, build):
+    ignores.add(5, "Алекс")
+    message = build("привет")
+    say(message)
+    ask.assert_not_called()
+    message.reply.assert_not_called()                   # молчим совсем
 
 
-def test_bots_are_ignored(monkeypatch):
-    with_ignore_list(monkeypatch, {})
-    assert MessageHandlers.check_ignore(fake_author(bot=True)) is True
-    assert MessageHandlers.check_ignore(fake_author()) is False
+def test_other_people_are_not_affected_by_ignore(ask, ignores):
+    ignores.add(123, "Кто-то другой")
+    say(make_message("Милки, привет"))
+    ask.assert_awaited_once()
 
 
-def test_ignore_list_with_and_without_expiry(monkeypatch):
-    future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
-    past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat().replace("+00:00", "Z")
-    naive_future = (datetime.now(timezone.utc) + timedelta(days=1)).replace(tzinfo=None).isoformat()
-    with_ignore_list(monkeypatch, {
-        "1": {},                                 # бессрочно
-        "2": {"expires_at": future},             # ещё действует
-        "3": {"expires_at": past},               # срок вышел (формат с Z)
-        "4": {"expires_at": "не дата"},          # ошибка в записи: лучше оставить игнор
-        "5": {"expires_at": naive_future},       # дата без часового пояса считается UTC
-    })
-    ignored = {uid: MessageHandlers.check_ignore(fake_author(int(uid))) for uid in "12345"}
-    assert ignored == {"1": True, "2": True, "3": False, "4": True, "5": True}
+def test_ban_and_unban_work_immediately_without_restart(ask, ignores):
+    ignores.add(5, "Алекс")
+    say(make_message("Милки, привет"))
+    ask.assert_not_called()
+
+    ignores.remove(5)
+    say(make_message("Милки, привет"))
+    ask.assert_awaited_once()
+
+
+def test_expired_ban_no_longer_applies(ask, ignores):
+    ignores.add(5, "Алекс", hours=1, now=datetime.now(timezone.utc) - timedelta(hours=2))
+    say(make_message("Милки, привет"))
+    ask.assert_awaited_once()
+
+
+def test_ignored_attempt_is_logged_only_when_user_really_addresses_the_bot(ask, ignores):
+    ignores.add(5, "Алекс")
+    say(make_message("просто болтаю с друзьями"))       # к Милки не обращались
+    messages_module.log.info.assert_not_called()
+
+    say(make_message("Милки, привет"))
+    say(make_message("<@999> привет"))
+    assert messages_module.log.info.call_count == 2     # по записи на каждое настоящее обращение
+    assert "5" in messages_module.log.info.call_args.args[0]
 
 
 # ------------------------------------------------------------------ on_msg
 
 def test_on_msg_uses_given_bot_user_and_skips_bots(monkeypatch):
-    with_ignore_list(monkeypatch, {})
     check = AsyncMock()
     monkeypatch.setattr(MessageHandlers, "check_ping", check)
     monkeypatch.setattr(MessageHandlers, "handle_economy", AsyncMock())
