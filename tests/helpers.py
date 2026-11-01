@@ -50,4 +50,5 @@ def make_message(content, reply_to=None, attachments=(), nsfw=False, author_id=5
         guild=None,
         author=SimpleNamespace(id=author_id, display_name="Алекс", bot=False),
         reply=AsyncMock(),
+        add_reaction=AsyncMock(),
     )

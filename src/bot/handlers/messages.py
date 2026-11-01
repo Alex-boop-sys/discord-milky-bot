@@ -34,6 +34,9 @@ LOG_LABELS = {REPLY: "reply", MENTION: "сообщение", NAME: "сообще
 class MessageHandlers:
     def __init__(self):
         self.economy_events = economy_events
+        # Объект бота Discord: нужен админ-командам, чтобы находить каналы на любых
+        # серверах. Заполняется при запуске в setup().
+        self.client = None
 
     # ---------------------------------------------------------------- события
 
@@ -62,6 +65,7 @@ class MessageHandlers:
 
     async def setup(self, bot):
         """Вызывается один раз при запуске (setup_hook), в отличие от on_ready."""
+        self.client = bot
         try:
             synced = await bot.tree.sync()
             log.info(f"Синхронизировано {len(synced)} команд")
@@ -180,7 +184,7 @@ class MessageHandlers:
         if looks_like_foreign_command(request):
             return
 
-        if await admin_commands.handle(message, request):
+        if await admin_commands.handle(message, request, self.client):
             return
 
         if not await self._cooldown_ok(message):
