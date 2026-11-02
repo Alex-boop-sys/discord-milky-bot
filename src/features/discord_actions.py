@@ -75,13 +75,9 @@ class Defs:
         await image_generation.generate_interaction(interaction, prompt)
 
     async def fur(self, interaction, query=None):
+        # если теги поиска не введены то используем дефолтный
         if not query:
-            await interaction.response.send_message(
-                "\\*наклоняет голову\\* Ой, а что искать-то? 🦊\n"
-                "Пиши теги на **английском** через пробел.\n"
-                "Пример: `cute wolf solo`"
-            )
-            return
+            query = "casualties_unknown"
 
         if not await self.cooldown_ok(interaction):
             return
