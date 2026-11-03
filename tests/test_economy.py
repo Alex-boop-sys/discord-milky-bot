@@ -2,6 +2,8 @@
 import sqlite3
 from types import SimpleNamespace
 
+from src.features import economy as economy_module
+
 import pytest
 
 from config import var
@@ -105,3 +107,20 @@ def test_no_reward_on_server_without_economy(eco, monkeypatch):
     monkeypatch.setattr(var, "economy_guild_ids", [ECONOMY_KEY])
     assert eco.process_bump_message(bump_message(guild_id=777)) is None
     assert eco.get_balance(42) == 0
+
+
+
+def test_reaction_event_chance_is_saved_once(eco, monkeypatch):
+    calls = []
+    monkeypatch.setattr(economy_module.random, "random", lambda: calls.append(True) or 0.9)
+
+    assert eco.should_start_reaction_event(1234, 50) is False
+    # Даже при повторном вызове с другим процентом возвращается исходное решение.
+    assert eco.should_start_reaction_event(1234, 100) is False
+    assert calls == [True]
+
+
+@pytest.mark.parametrize("chance,random_value,expected", [(0, 0.0, False), (50, 0.49, True), (50, 0.5, False), (100, 0.99, True)])
+def test_reaction_event_chance_boundaries(eco, monkeypatch, chance, random_value, expected):
+    monkeypatch.setattr(economy_module.random, "random", lambda: random_value)
+    assert eco.should_start_reaction_event(5000 + chance, chance) is expected

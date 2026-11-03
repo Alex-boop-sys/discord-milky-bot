@@ -12,6 +12,7 @@ import math
 
 import discord
 
+from config import var
 from src.bot.admin_commands import admin_commands
 from src.bot.handlers.economy import economy_events
 from src.bot.handlers.guilds import guild_handlers
@@ -111,7 +112,7 @@ class MessageHandlers:
     async def handle_economy(self, message):
         """Награда за бамп. Вызывается и для новых сообщений, и для их правок: повторы
         безопасны, один бамп награждается не более одного раза."""
-        # 1. Инициатор известен наверняка: награда напрямую.
+        # 1. Инициатор известен наверняка: обычная награда напрямую.
         rewarded_user_id = economy.process_bump_message(message)
         if rewarded_user_id is not None:
             # Сообщаем о награде в том же канале, где бот подтвердил бамп.
@@ -121,11 +122,15 @@ class MessageHandlers:
                 f"🫐 Хрум! {mention} получает Геофрукт за успешный бамп! "
                 "(Чтобы тоже получить Геофрукт, используй `/bump`.)"
             )
-            return
 
-        # 2. Carl-bot / Discodus без известного инициатора: минутный сбор реакций.
-        if economy.is_reaction_bump_success(message) and not economy.is_rewarded(message.id):
-            await self.start_reaction_bump_event(message)
+        # 2. У Carl-bot / Discodus мини-ивент может начаться независимо от того,
+        # удалось ли определить инициатора. Решение о 50% шансе сохраняется в БД,
+        # поэтому повторные правки сообщения не запускают новые броски.
+        if economy.is_reaction_bump_success(message):
+            if economy.should_start_reaction_event(
+                message.id, var.reaction_event_chance_percent
+            ):
+                await self.start_reaction_bump_event(message)
 
     # События экономики вынесены в отдельный обработчик; эти методы сохраняют
     # прежний интерфейс для остального кода бота.

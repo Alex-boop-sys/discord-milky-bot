@@ -21,6 +21,8 @@ def flow(eco, monkeypatch):
     """Обработчики на временной базе; сбор реакций - настоящий, но без фоновой задачи."""
     monkeypatch.setattr(messages_module, "economy", eco)
     monkeypatch.setattr(events_module, "economy", eco)
+    # В тестах по умолчанию шанс считаем успешным, чтобы тестировать сам запуск.
+    monkeypatch.setattr(eco, "should_start_reaction_event", lambda _id, _chance: True)
     events = EconomyEventHandler()
     monkeypatch.setattr(events, "_ensure_reaction_worker", Mock())
     handlers = MessageHandlers()
@@ -56,7 +58,7 @@ def test_deferred_reply_with_known_initiator_is_rewarded_on_edit(flow):
 
     edited(flow, make_real_message(message_id=message_id, content=SUCCESS))        # ещё одна правка
     assert flow.eco.get_balance(BUMPER) == 1                                       # награды не удваиваются
-    assert queued(flow) == 0                                                       # и мини-игры нет
+    assert queued(flow) == 1                                                       # мини-ивент только один
 
 
 def test_deferred_reply_with_unknown_initiator_starts_one_minigame(flow):
@@ -79,17 +81,19 @@ def test_immediate_reply_with_unknown_initiator_starts_minigame_once(flow):
     assert queued(flow) == 1
 
 
-def test_immediate_reply_with_known_initiator_is_rewarded_without_minigame(flow):
+def test_immediate_reply_with_known_initiator_gets_reward_and_may_start_minigame(flow):
     message_id = next_id()
     created(flow, make_real_message(message_id=message_id, content=SUCCESS))
     edited(flow, make_real_message(message_id=message_id, content=SUCCESS))        # потом ещё и правка
-    assert flow.eco.get_balance(BUMPER) == 1 and queued(flow) == 0
+    assert flow.eco.get_balance(BUMPER) == 1 and queued(flow) == 1
+    assert flow.eco.has_reaction_event(message_id)                                 # мини-ивент дополнительно
 
 
-def test_other_bump_bots_work_as_before(flow):
+def test_other_supported_bump_bots_also_get_reaction_event_chance(flow):
     message = make_real_message(bot_id=DISBOARD, bot_name="DISBOARD", content="Bump done!")
     created(flow, message)
     assert flow.eco.get_balance(BUMPER) == 1 and message.channel.send.await_count == 1
+    assert queued(flow) == 1                                                       # шанс мини-ивента есть у всех поддерживаемых ботов
 
 
 # ---------------------------------------------------------- что игнорируется
@@ -150,3 +154,22 @@ def test_economy_is_asked_only_about_edits_of_other_bots(flow, monkeypatch):
     other_bot = make_real_message(content=SUCCESS)
     edited(flow, other_bot)
     handle.assert_awaited_once_with(other_bot)
+
+
+
+def test_known_initiator_minigame_chance_is_decided_only_once(flow, monkeypatch):
+    message_id = next_id()
+    decisions = []
+    monkeypatch.setattr(
+        flow.eco,
+        "should_start_reaction_event",
+        lambda source_id, chance: decisions.append((source_id, chance)) or False,
+    )
+
+    message = make_real_message(message_id=message_id, content=SUCCESS)
+    created(flow, message)
+    edited(flow, make_real_message(message_id=message_id, content=SUCCESS))
+
+    assert flow.eco.get_balance(BUMPER) == 1
+    assert queued(flow) == 0
+    assert decisions == [(message_id, 50)]                                        # только один бросок
