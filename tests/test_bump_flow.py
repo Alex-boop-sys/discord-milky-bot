@@ -89,11 +89,11 @@ def test_immediate_reply_with_known_initiator_gets_reward_and_may_start_minigame
     assert flow.eco.has_reaction_event(message_id)                                 # мини-ивент дополнительно
 
 
-def test_other_bump_bots_work_as_before(flow):
+def test_other_supported_bump_bots_also_get_reaction_event_chance(flow):
     message = make_real_message(bot_id=DISBOARD, bot_name="DISBOARD", content="Bump done!")
     created(flow, message)
     assert flow.eco.get_balance(BUMPER) == 1 and message.channel.send.await_count == 1
-    assert queued(flow) == 0                                                       # другой бот не запускает мини-ивент
+    assert queued(flow) == 1                                                       # шанс мини-ивента есть у всех поддерживаемых ботов
 
 
 # ---------------------------------------------------------- что игнорируется
