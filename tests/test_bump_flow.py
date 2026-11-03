@@ -58,7 +58,7 @@ def test_deferred_reply_with_known_initiator_is_rewarded_on_edit(flow):
 
     edited(flow, make_real_message(message_id=message_id, content=SUCCESS))        # ещё одна правка
     assert flow.eco.get_balance(BUMPER) == 1                                       # награды не удваиваются
-    assert queued(flow) == 0                                                       # и мини-игры нет
+    assert queued(flow) == 1                                                       # мини-ивент только один
 
 
 def test_deferred_reply_with_unknown_initiator_starts_one_minigame(flow):
