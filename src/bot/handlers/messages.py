@@ -16,6 +16,7 @@ from src.bot.admin_commands import admin_commands
 from src.bot.handlers.economy import economy_events
 from src.bot.handlers.guilds import guild_handlers
 from src.features.art_search import art_search
+from src.features.bump_sniffer import bump_sniffer
 from src.features.economy import economy
 from src.features.image_generation import image_generation
 from src.features.morning_greetings import morning_greetings
@@ -49,6 +50,9 @@ class MessageHandlers:
         if not utils.is_guild_allowed(message.guild.id if message.guild else None):
             return
 
+        # Для диагностики бампов (root# sniff): запоминаем сообщения ботов, если она включена.
+        bump_sniffer.record("create", message, self_id=getattr(bot_user, "id", None))
+
         # Бамп-боты проверяем раньше общего фильтра: он отбрасывает всех ботов,
         # а для экономики их подтверждения необходимы.
         await self.handle_economy(message)
@@ -64,6 +68,23 @@ class MessageHandlers:
             return
 
         await self.check_ping(message, bot_user)
+
+    async def on_raw_message_edit(self, payload):
+        """Правка сообщения. Многие боты сначала присылают «думает…», а итог вписывают позже."""
+        message = payload.message
+        set_place(place_name(message.guild, message.channel))
+        if not utils.is_guild_allowed(message.guild.id if message.guild else None):
+            return
+
+        author = getattr(message, "author", None)
+        if author is None or not author.bot:
+            return  # правки сообщений людей нас не интересуют
+        own_id = self.client.user.id if self.client and self.client.user else None
+        if author.id == own_id:
+            return  # свои правки (обратный отсчёт раздачи) тоже
+
+        bump_sniffer.record("edit", message, raw=payload.data, self_id=own_id)
+        await self.handle_economy(message)
 
     async def setup(self, bot):
         """Вызывается один раз при запуске (setup_hook), в отличие от on_ready."""
@@ -88,21 +109,23 @@ class MessageHandlers:
     # -------------------------------------------------------------- экономика
 
     async def handle_economy(self, message):
-        if economy.is_reaction_bump_success(message):
-            await self.start_reaction_bump_event(message)
-            return
-
+        """Награда за бамп. Вызывается и для новых сообщений, и для их правок: повторы
+        безопасны, один бамп награждается не более одного раза."""
+        # 1. Инициатор известен наверняка: награда напрямую.
         rewarded_user_id = economy.process_bump_message(message)
-        if rewarded_user_id is None:
+        if rewarded_user_id is not None:
+            # Сообщаем о награде в том же канале, где бот подтвердил бамп.
+            member = message.guild.get_member(rewarded_user_id) if message.guild else None
+            mention = member.mention if member else f"<@{rewarded_user_id}>"
+            await message.channel.send(
+                f"🫐 Хрум! {mention} получает Геофрукт за успешный бамп! "
+                "(Чтобы тоже получить Геофрукт, используй `/bump`.)"
+            )
             return
 
-        # Сообщаем о награде в том же канале, где бот подтвердил бамп.
-        member = message.guild.get_member(rewarded_user_id) if message.guild else None
-        mention = member.mention if member else f"<@{rewarded_user_id}>"
-        await message.channel.send(
-            f"🫐 Хрум! {mention} получает Геофрукт за успешный бамп! "
-            "(Чтобы тоже получить Геофрукт, используй `/bump`.)"
-        )
+        # 2. Carl-bot / Discodus без известного инициатора: минутный сбор реакций.
+        if economy.is_reaction_bump_success(message) and not economy.is_rewarded(message.id):
+            await self.start_reaction_bump_event(message)
 
     # События экономики вынесены в отдельный обработчик; эти методы сохраняют
     # прежний интерфейс для остального кода бота.

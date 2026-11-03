@@ -4,21 +4,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from config import paths, var
+from config import var
 from src.features.economy import ECONOMY_KEY, Economy
 
 DISBOARD = 302050872383242240    # называет инициатора сразу
 CARL_BOT = 235148962103951360    # награда выдаётся через сбор реакций 🫐
 
 
-@pytest.fixture
-def eco(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths, "economy_db", str(tmp_path / "economy.db"))
-    return Economy()
-
-
 def bump_message(message_id=1, author_id=DISBOARD, user_id=42, guild_id=ECONOMY_KEY, content="Bump done!"):
-    """Подделка сообщения Discord: только те поля, которые читает код."""
+    """Подделка сообщения Discord: только те поля, которые читает код.
+
+    user_id=None - как будто Discord не сообщает, кто вызвал команду.
+    """
     return SimpleNamespace(
         id=message_id,
         content=content,
@@ -26,7 +23,7 @@ def bump_message(message_id=1, author_id=DISBOARD, user_id=42, guild_id=ECONOMY_
         guild=SimpleNamespace(id=guild_id),
         channel=SimpleNamespace(id=555),
         author=SimpleNamespace(id=author_id, bot=True),
-        interaction_metadata=SimpleNamespace(user=SimpleNamespace(id=user_id)),
+        interaction_metadata=SimpleNamespace(user=SimpleNamespace(id=user_id)) if user_id else None,
     )
 
 
@@ -55,7 +52,7 @@ def test_bump_is_rewarded_exactly_once(eco):
         {"guild_id": 111},                                   # чужой сервер
         {"author_id": 999},                                  # не бамп-бот
         {"content": "Подождите перед следующим бампом"},     # не успешный бамп
-        {"author_id": CARL_BOT, "content": "You've successfully bumped this server"},  # идёт через реакции
+        {"author_id": CARL_BOT, "user_id": None, "content": "You've successfully bumped this server"},  # инициатор неизвестен: мини-игра
     ],
 )
 def test_no_reward_when_conditions_not_met(eco, kwargs):
@@ -64,7 +61,7 @@ def test_no_reward_when_conditions_not_met(eco, kwargs):
 
 
 def test_reaction_event_full_cycle(eco):
-    msg = bump_message(author_id=CARL_BOT, content="You've successfully bumped this server")
+    msg = bump_message(author_id=CARL_BOT, user_id=None, content="You've successfully bumped this server")
     assert eco.is_reaction_bump_success(msg)
 
     assert eco.reserve_reaction_event(msg) is True

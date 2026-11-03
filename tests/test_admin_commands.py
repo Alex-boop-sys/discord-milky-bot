@@ -75,10 +75,10 @@ def test_ver_help_and_unknown_command(world):
 
 def test_help_describes_every_command():
     for command in ("ver", "log", "ban", "unban", "bans", "servers", "status", "ai",
-                    "say", "reply", "reaction", "del", "help"):
+                    "inspect", "sniff", "say", "reply", "reaction", "del", "help"):
         assert f"root# {command}" in HELP_TEXT
     # Подсказка о формате есть у всех команд, которые принимают параметры.
-    assert set(USAGE) == {"ban", "unban", "say", "reply", "reaction", "del"}
+    assert set(USAGE) == {"ban", "unban", "inspect", "sniff", "say", "reply", "reaction", "del"}
 
 
 # --------------------------------------------------------------------- say

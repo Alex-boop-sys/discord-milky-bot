@@ -5,6 +5,7 @@ import os
 import re
 import sqlite3
 import time
+import warnings
 from contextlib import contextmanager
 
 from config import paths, var
@@ -27,10 +28,80 @@ REACTION_BUMP_BOT_IDS = {
     235148962103951360,  # Carl-bot
     1159147139960676422,  # Discodus
 }
+# Если Discord сам сообщает, кто вызвал команду бампа (interaction_metadata), награда
+# выдаётся этому человеку напрямую, даже для Carl-bot и Discodus. Мини-игра с реакциями
+# остаётся запасным вариантом, когда инициатор неизвестен. False - всегда мини-игра.
+DIRECT_REWARD_FOR_REACTION_BOTS = True
+# Источники, которым можно доверять при определении инициатора (упоминание в тексте - нет).
+RELIABLE_INITIATOR_SOURCES = ("interaction_metadata", "interaction")
+
+# Фразы успешного бампа (сравниваются после normalize_text, поэтому регистр, апострофы,
+# Markdown и лишние пробелы значения не имеют).
+SUCCESS_PHRASES = (
+    "вы успешно лайкнули сервер",  # DSMonitoring
+    "bump done",  # DISBOARD / Discodus
+    "you've successfully bumped this server",  # Carl-bot
+    "server bumped by",  # Server Monitoring
+)
 BUMP_REWARD = 1
 CURRENCY_NAME = "Геофрукт"
 CURRENCY_EMOJI = "🫐"
 REACTION_WINDOW_SECONDS = 60
+
+_APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "′": "'"})
+
+
+def normalize_text(text):
+    """Текст для поиска фраз: регистр, типографские апострофы, Markdown, эмодзи, пробелы."""
+    text = (text or "").casefold().translate(_APOSTROPHES)
+    text = re.sub(r"<a?:\w+:\d+>", " ", text)  # серверные эмодзи <:имя:123>
+    text = re.sub(r"[*_~`|>]", "", text)  # Markdown-разметка
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def legacy_interaction(message):
+    """Устаревшее поле message.interaction (оставлено на случай, если Discord пришлёт только его).
+
+    discord.py при обращении к нему сам принудительно показывает предупреждение, поэтому
+    обычный фильтр не помогает: предупреждения складываем в «пустой» список (record=True).
+    """
+    with warnings.catch_warnings(record=True):
+        return getattr(message, "interaction", None)
+
+
+def _component_texts(components):
+    """Тексты из компонентов сообщения, в том числе новых (v2: TextDisplay, секции, контейнеры)."""
+    texts = []
+    for component in components or []:
+        content = getattr(component, "content", None)
+        if isinstance(content, str):
+            texts.append(content)
+        for attr in ("children", "components"):
+            nested = getattr(component, attr, None)
+            if isinstance(nested, (list, tuple)):
+                texts.extend(_component_texts(nested))
+        accessory = getattr(component, "accessory", None)
+        if accessory is not None:
+            texts.extend(_component_texts([accessory]))
+    return texts
+
+
+def collect_text(message):
+    """Весь видимый текст сообщения: обычный, из эмбедов (включая поля) и из компонентов."""
+    parts = [message.content or ""]
+    for embed in getattr(message, "embeds", None) or []:
+        parts.extend(
+            [
+                getattr(embed, "title", None),
+                getattr(embed, "description", None),
+                getattr(getattr(embed, "author", None), "name", None),
+                getattr(getattr(embed, "footer", None), "text", None),
+            ]
+        )
+        for field in getattr(embed, "fields", None) or []:
+            parts.extend([getattr(field, "name", None), getattr(field, "value", None)])
+    parts.extend(_component_texts(getattr(message, "components", None)))
+    return " ".join(part for part in parts if isinstance(part, str) and part)
 
 
 class Economy:
@@ -111,67 +182,47 @@ class Economy:
             """)
 
     @staticmethod
-    def _message_user_id(message):
-        """Получает инициатора только из достоверных данных сообщения."""
-        # В некоторых версиях Discord API ответ на slash-команду содержит
-        # interaction_metadata с пользователем, вызвавшим команду.
-        metadata = getattr(message, "interaction_metadata", None)
-        user = getattr(metadata, "user", None) if metadata else None
-        user_id = getattr(user, "id", None)
-        if user_id:
-            return int(user_id)
+    def find_initiator(message):
+        """Кто вызвал бамп: (ID, источник сведений) либо (None, None).
 
-        # Совместимость с объектами/версиями discord.py, где доступно interaction.
-        interaction = getattr(message, "interaction", None)
-        user = getattr(interaction, "user", None) if interaction else None
-        user_id = getattr(user, "id", None)
+        Надёжные источники идут первыми: Discord сам указывает, кто вызвал команду
+        (interaction_metadata / interaction). Упоминание в тексте - запасной вариант.
+        """
+        # В ответе на slash-команду Discord указывает пользователя, вызвавшего команду.
+        metadata = getattr(message, "interaction_metadata", None)
+        user_id = getattr(getattr(metadata, "user", None), "id", None) if metadata else None
         if user_id:
-            return int(user_id)
+            return int(user_id), "interaction_metadata"
+
+        # Более старое поле (в новых версиях Discord API считается устаревшим).
+        interaction = legacy_interaction(message)
+        user_id = getattr(getattr(interaction, "user", None), "id", None) if interaction else None
+        if user_id:
+            return int(user_id), "interaction"
 
         # Некоторые боты явно упоминают пользователя в тексте подтверждения.
-        match = re.search(r"<@!?(\d{15,22})>", message.content or "")
+        match = re.search(r"<@!?(\d{15,22})>", collect_text(message))
         if match:
-            return int(match.group(1))
-        for embed in getattr(message, "embeds", []):
-            for text in (
-                getattr(getattr(embed, "author", None), "name", ""),
-                getattr(getattr(embed, "description", None), "text", ""),
-                getattr(embed, "description", "") or "",
-                getattr(getattr(embed, "footer", None), "text", ""),
-            ):
-                match = re.search(r"<@!?(\d{15,22})>", text or "")
-                if match:
-                    return int(match.group(1))
-        return None
+            return int(match.group(1)), "mention"
+        return None, None
+
+    @classmethod
+    def _message_user_id(cls, message):
+        return cls.find_initiator(message)[0]
 
     @staticmethod
-    def _is_success_message(message):
-        """Проверяет известные формулировки успешного бампа."""
-        content = (message.content or "").casefold()
-        embed_text = " ".join(
-            " ".join(
-                filter(
-                    None,
-                    [
-                        getattr(embed, "title", None),
-                        getattr(embed, "description", None),
-                        getattr(getattr(embed, "author", None), "name", None),
-                        getattr(getattr(embed, "footer", None), "text", None),
-                    ],
-                )
-            )
-            for embed in getattr(message, "embeds", [])
-        ).casefold()
-        text = f"{content} {embed_text}"
+    def matched_phrase(message):
+        """Какая из известных фраз успешного бампа есть в сообщении (или None)."""
+        text = normalize_text(collect_text(message))
+        for phrase in SUCCESS_PHRASES:
+            if normalize_text(phrase) in text:
+                return phrase
+        return None
 
-        # Проверяем успех, а не просто любое сообщение от bump-бота.
-        success_phrases = (
-            "вы успешно лайкнули сервер",  # DSMonitoring
-            "bump done",  # DISBOARD / Discodus
-            "you've successfully bumped this server",  # Carl-bot
-            "server bumped by",  # Server Monitoring
-        )
-        return any(phrase in text for phrase in success_phrases)
+    @classmethod
+    def _is_success_message(cls, message):
+        """Проверяет известные формулировки успешного бампа (а не любое сообщение бота)."""
+        return cls.matched_phrase(message) is not None
 
     def is_reaction_bump_success(self, message):
         """True для подтверждения успешного бампа Carl-bot или Discodus."""
@@ -182,6 +233,95 @@ class Economy:
             and message.author.id in REACTION_BUMP_BOT_IDS
             and self._is_success_message(message)
         )
+
+    def diagnose(self, message):
+        """Объясняет, что Милки сделает с сообщением и почему. Ничего не меняет (ни базу, ни награды).
+
+        Возвращает {"checks": [{"name", "ok", "detail"}, ...], "verdict", "summary"}.
+        verdict: "reward" (награда напрямую), "minigame" (сбор реакций), "wait" (бот ещё
+        «думает», результат придёт правкой) или "ignore".
+        """
+        guild = getattr(message, "guild", None)
+        author = getattr(message, "author", None)
+        author_id = getattr(author, "id", None)
+        loading = bool(getattr(getattr(message, "flags", None), "loading", False))
+        phrase = self.matched_phrase(message)
+        user_id, source = self.find_initiator(message)
+        economy_here = bool(guild and self.enabled_in(guild.id))
+        is_bot = bool(getattr(author, "bot", False))
+        known_bot = author_id in BUMP_BOT_IDS
+        reaction_bot = author_id in REACTION_BUMP_BOT_IDS
+        seen = normalize_text(collect_text(message))
+        seen = seen if len(seen) <= 160 else seen[:159] + "…"
+
+        checks = [
+            {
+                "name": "Сообщение готово (бот не «думает»)",
+                "ok": not loading,
+                "detail": "" if not loading else "флаг loading: итог придёт правкой сообщения",
+            },
+            {
+                "name": "Сервер с экономикой",
+                "ok": economy_here,
+                "detail": f"сервер {getattr(guild, 'id', None)}; экономика включена на {list(var.economy_guild_ids)}",
+            },
+            {"name": "Автор - бот", "ok": is_bot, "detail": f"автор {author_id}"},
+            {
+                "name": "Бот известен экономике",
+                "ok": known_bot,
+                "detail": (
+                    "режим: сбор реакций" if reaction_bot else "режим: награда напрямую"
+                )
+                if known_bot
+                else f"ID {author_id} нет в BUMP_BOT_IDS",
+            },
+            {
+                "name": "Есть фраза успешного бампа",
+                "ok": phrase is not None,
+                "detail": f"найдена «{phrase}»"
+                if phrase
+                else f"не найдена; Милки видит текст: «{seen}»",
+            },
+            {
+                "name": "Известен инициатор бампа",
+                "ok": user_id is not None,
+                "detail": f"{user_id} (источник: {source})"
+                if user_id
+                else "нет ни в метаданных команды, ни в тексте",
+            },
+        ]
+
+        if loading:
+            verdict, summary = "wait", "сообщение ещё «загружается»: решение будет после его правки"
+        elif not (economy_here and is_bot and known_bot and phrase):
+            failed = next(c["name"] for c in checks[1:5] if not c["ok"])
+            verdict, summary = "ignore", f"игнорирует: не выполнено «{failed}»"
+        elif reaction_bot and not (
+            DIRECT_REWARD_FOR_REACTION_BOTS and source in RELIABLE_INITIATOR_SOURCES
+        ):
+            verdict, summary = "minigame", "запустит сбор реакций 🫐 (инициатор неизвестен наверняка)"
+        elif user_id:
+            verdict, summary = "reward", f"начислит награду пользователю {user_id}"
+        else:
+            verdict, summary = "ignore", "игнорирует: бамп успешен, но инициатор неизвестен"
+        return {"checks": checks, "verdict": verdict, "summary": summary}
+
+    def is_rewarded(self, message_id):
+        """Начислена ли уже прямая награда за это сообщение бота."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM bump_log WHERE message_id = ?", (message_id,)
+            ).fetchone()
+        return row is not None
+
+    def has_reaction_event(self, message_id):
+        """Есть ли уже сбор реакций за это сообщение бота (в любом состоянии)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM bump_claim_events WHERE source_message_id = ?",
+                (message_id,),
+            ).fetchone()
+        return row is not None
 
     def reserve_reaction_event(self, message):
         """Резервирует событие, не позволяя обработать подтверждение дважды."""
@@ -305,19 +445,26 @@ class Economy:
     def process_bump_message(self, message):
         """Начисляет прямую награду за сообщение, где инициатор известен.
 
-        Carl-bot и Discodus обрабатываются отдельным сбором реакций.
+        У Carl-bot и Discodus награда прямая только если Discord сам указал, кто вызвал
+        команду (interaction_metadata); иначе для них запускается сбор реакций.
         """
         if not message.guild or not self.enabled_in(message.guild.id):
             return None
         if not message.author.bot or message.author.id not in BUMP_BOT_IDS:
             return None
-        if message.author.id in REACTION_BUMP_BOT_IDS:
+        reaction_bot = message.author.id in REACTION_BUMP_BOT_IDS
+        if reaction_bot and not DIRECT_REWARD_FOR_REACTION_BOTS:
             return None
         if not self._is_success_message(message):
             return None
 
-        user_id = self._message_user_id(message)
-        if user_id is None:
+        user_id, source = self.find_initiator(message)
+        if reaction_bot:
+            # Только достоверный инициатор; а если сбор реакций за это сообщение уже
+            # идёт, второй путь награждения не нужен.
+            if source not in RELIABLE_INITIATOR_SOURCES or self.has_reaction_event(message.id):
+                return None
+        elif user_id is None:
             log.warning(
                 f"Успешный бамп от бота {message.author.id} (сообщение {message.id}), "
                 "но инициатор не указан в сообщении; награда не начислена"

@@ -83,9 +83,10 @@ def test_trigger_passes_nsfw_text_to_art_search(fake_features):
 
 # ---------- несколько серверов -------------------------------------------------
 
-def test_guild_join_handler_is_registered():
+def test_guild_join_and_message_edit_handlers_are_registered():
     bot_handlers.register_handlers()
     assert asyncio.iscoroutinefunction(bot.on_guild_join)
+    assert asyncio.iscoroutinefunction(bot.on_raw_message_edit)     # правки сообщений ботов нужны экономике
 
 
 def test_slash_commands_are_checked_by_milky_tree(monkeypatch):

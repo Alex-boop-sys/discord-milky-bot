@@ -241,11 +241,13 @@ def test_economy_reward_is_announced_with_mention(monkeypatch):
     assert "<@42>" in text and "Геофрукт" in text
 
 
-def test_reaction_bump_starts_event_instead_of_reward(monkeypatch):
-    fake_economy = SimpleNamespace(is_reaction_bump_success=lambda m: True, process_bump_message=lambda m: 1 / 0)
+def test_reaction_bump_starts_event_when_initiator_is_unknown(monkeypatch):
+    fake_economy = SimpleNamespace(
+        is_reaction_bump_success=lambda m: True, process_bump_message=lambda m: None, is_rewarded=lambda m: False
+    )
     monkeypatch.setattr(messages_module, "economy", fake_economy)
     start = AsyncMock()
     monkeypatch.setattr(MessageHandlers, "start_reaction_bump_event", start)
-    message = SimpleNamespace(guild=None, channel=SimpleNamespace(send=AsyncMock()))
+    message = SimpleNamespace(id=1, guild=None, channel=SimpleNamespace(send=AsyncMock()))
     asyncio.run(MessageHandlers().handle_economy(message))
     start.assert_awaited_once_with(message)

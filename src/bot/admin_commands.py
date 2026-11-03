@@ -10,6 +10,7 @@
 (log, bans, servers, status, ai) бот сам удаляет через минуту.
 """
 
+import io
 import math
 import os
 import platform
@@ -22,6 +23,14 @@ from pathlib import Path
 import discord
 
 from config import VERSION, env, paths, var
+from src.features.bump_sniffer import (
+    DEFAULT_MINUTES,
+    MAX_MINUTES,
+    bump_sniffer,
+    describe_message,
+    format_diagnosis,
+    to_json,
+)
 from src.services.ai import api
 from src.services.history import history
 from src.services.ignore_list import ignore_list, parse_time
@@ -34,6 +43,7 @@ OK_MARK, FAIL_MARK, LOG_MARK = "✅", "❌", "📩"
 DISCORD_LIMIT = 2000   # максимум символов в сообщении Discord
 LOG_LINES = 10         # сколько последних строк лога показывает root# log
 INFO_LIFETIME = 60     # через сколько секунд бот сам удаляет информационные ответы
+DIAG_LIFETIME = 300    # отчёты диагностики (с файлом) живут дольше: файл надо успеть скачать
 MAX_BAN_HOURS = 24 * 365 * 10   # дольше 10 лет игнорировать нет смысла
 STARTED_AT = time.monotonic()   # момент запуска программы (для аптайма в status)
 NO_MENTIONS = discord.AllowedMentions.none()   # ники и причины никого не пингуют
@@ -48,6 +58,8 @@ HELP_TEXT = (
     "`root# servers` — серверы, где есть Милки\n"
     "`root# status` — состояние бота\n"
     "`root# ai` — проверить ИИ-провайдеров\n"
+    "`root# inspect [[ид_сервера] ид_канала] ид_сообщения` — что Милки видит в сообщении (бампы)\n"
+    "`root# sniff on|off|show|clear|status` — записывать сообщения ботов (диагностика бампов)\n"
     "`root# say [ид_сервера] ид_канала текст` — написать от имени Милки в канал\n"
     "`root# reply [[ид_сервера] ид_канала] ид_сообщения текст` — ответить на сообщение\n"
     "`root# reaction [[ид_сервера] ид_канала] ид_сообщения эмодзи` — поставить реакцию\n"
@@ -59,6 +71,15 @@ HELP_TEXT = (
 )
 
 USAGE = {
+    "inspect": (
+        "`root# inspect [[ид_сервера] ид_канала] ид_сообщения`\n"
+        "Или со ссылкой: `root# inspect https://discord.com/channels/...`"
+    ),
+    "sniff": (
+        "`root# sniff on [минуты]` — включить запись (по умолчанию 30 мин, не больше 240)\n"
+        "`root# sniff show` — прислать записанное файлом, `root# sniff off` — выключить,\n"
+        "`root# sniff clear` — очистить, `root# sniff status` — состояние"
+    ),
     "ban": (
         "`root# ban ид [срок] [причина]`\n"
         "Срок: `24` или `24ч` — часы, `7д` — дни; без срока — бессрочно.\n"
@@ -219,6 +240,8 @@ class AdminCommands:
             "servers": self._cmd_servers,
             "status": self._cmd_status,
             "ai": self._cmd_ai,
+            "inspect": self._cmd_inspect,
+            "sniff": self._cmd_sniff,
             "say": self._cmd_say,
             "reply": self._cmd_reply,
             "reaction": self._cmd_reaction,
@@ -428,6 +451,100 @@ class AdminCommands:
             "Опрашиваются по порядку цепочки: пользователям отвечает первый работающий.\n"
         )
         await self._info_reply(message, fit_lines(header, lines))
+
+    async def _cmd_inspect(self, message, args, client):
+        ids, rest = split_ids(args, limit=3)
+        if not ids or rest:
+            raise UsageError
+        channel, target = await self._find_message(message, client, ids)
+
+        # «Сырые» данные так, как их присылает Discord: в них видно то, что разбор мог пропустить.
+        raw = None
+        http = getattr(client, "http", None)
+        if http is not None:
+            try:
+                raw = await http.get_message(channel.id, target.id)
+            except discord.HTTPException as exc:
+                log.warning(f"root# inspect: не удалось получить исходные данные сообщения: {exc}")
+
+        report = describe_message(target, raw=raw)
+        author = report["author"]
+        header = (
+            f"**Что видит Милки** · сообщение `{target.id}`, автор "
+            f"**{discord.utils.escape_markdown(str(author['name']))}** (`{author['id']}`)\n"
+        )
+        text = fit_lines(header, format_diagnosis(report["diagnosis"]))
+        await self._diagnostic_reply(message, text, report, f"inspect-{target.id}.json")
+
+    async def _cmd_sniff(self, message, args, client):
+        parts = args.split()
+        action = parts[0].lower() if parts else "status"
+
+        if action == "on":
+            minutes = DEFAULT_MINUTES
+            if len(parts) > 2 or (len(parts) == 2 and not parts[1].isdigit()):
+                raise UsageError
+            if len(parts) == 2:
+                minutes = int(parts[1])
+            if not 1 <= minutes <= MAX_MINUTES:
+                raise UsageError
+            bump_sniffer.start(minutes)
+            await self._info_reply(
+                message,
+                f"🔎 Запись включена на {minutes} мин: слежу за сообщениями ботов на серверах с "
+                "экономикой (в том числе за их правками). Сделайте бамп у Carl-bot и Discodus, "
+                "затем `root# sniff show`.",
+            )
+        elif action in ("off", "clear", "show", "status") and len(parts) <= 1:
+            if action == "off":
+                bump_sniffer.stop()
+                await self._info_reply(
+                    message,
+                    f"🔎 Запись выключена. Сообщений записано: {bump_sniffer.count()} "
+                    "(`root# sniff show` — посмотреть).",
+                )
+            elif action == "clear":
+                bump_sniffer.clear()
+                return OK_MARK
+            elif action == "show":
+                await self._sniff_show(message)
+            else:
+                state = (
+                    f"включена, осталось {format_duration(bump_sniffer.remaining())}"
+                    if bump_sniffer.is_active()
+                    else "выключена"
+                )
+                await self._info_reply(
+                    message, f"🔎 Запись {state}. Сообщений записано: {bump_sniffer.count()}."
+                )
+        else:
+            raise UsageError
+
+    async def _sniff_show(self, message):
+        records = bump_sniffer.snapshot()
+        if not records:
+            await self._info_reply(
+                message,
+                "Записей пока нет. Включите `root# sniff on`, сделайте бамп и повторите. "
+                "Если записей нет и после бампа, значит Милки вообще не видит сообщений этих "
+                "ботов (например, их ответ виден только вызвавшему команду).",
+            )
+            return
+        header = f"**Записано сообщений ботов: {len(records)}**\n"
+        text = fit_lines(header, bump_sniffer.summary_lines())
+        await self._diagnostic_reply(message, text, records, "sniffer.json")
+
+    @staticmethod
+    async def _diagnostic_reply(message, text, data, filename):
+        """Отчёт диагностики: краткая сводка в чате и подробности JSON-файлом."""
+        file = discord.File(io.BytesIO(to_json(data).encode("utf-8")), filename=filename)
+        await message.reply(
+            text,
+            file=file,
+            mention_author=False,
+            allowed_mentions=NO_MENTIONS,
+            delete_after=DIAG_LIFETIME,
+        )
 
     async def _cmd_say(self, message, args, client):
         ids, text = split_ids(args, limit=2)

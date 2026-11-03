@@ -56,6 +56,10 @@ class BotHandlers:
             await handlers.on_msg(message, bot.user)
 
         @bot.event
+        async def on_raw_message_edit(payload):
+            await handlers.on_raw_message_edit(payload)
+
+        @bot.event
         async def on_ready():
             await handlers.on_ready(bot)
 

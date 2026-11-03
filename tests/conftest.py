@@ -36,3 +36,12 @@ def world(monkeypatch):
 
     monkeypatch.setattr(config.env, "owner_ids", [OWNER])
     return World()
+
+
+@pytest.fixture
+def eco(tmp_path, monkeypatch):
+    """Экономика на временной базе (настоящая база бота не трогается)."""
+    from src.features.economy import Economy
+
+    monkeypatch.setattr(config.paths, "economy_db", str(tmp_path / "economy.db"))
+    return Economy()
