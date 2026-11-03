@@ -234,12 +234,12 @@ class Economy:
         return cls.matched_phrase(message) is not None
 
     def is_reaction_bump_success(self, message):
-        """True для подтверждения успешного бампа Carl-bot или Discodus."""
+        """True для успешного бампа любого поддерживаемого бота."""
         return bool(
             message.guild
             and self.enabled_in(message.guild.id)
             and message.author.bot
-            and message.author.id in REACTION_BUMP_BOT_IDS
+            and message.author.id in BUMP_BOT_IDS
             and self._is_success_message(message)
         )
 
