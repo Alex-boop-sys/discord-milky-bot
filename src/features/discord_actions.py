@@ -277,9 +277,9 @@ class Defs:
             user_id = user_data["user_id"]
             count = user_data["count"]
 
-            # Статистика общая для всех серверов, поэтому человека может не быть
-            # на этом сервере: тогда вместо имени пишем «Пользователь скрыт».
-            username = utils.member_display_name(interaction.guild, user_id)
+            # Статистика общая для всех серверов, получаем ещё имя или его замену,
+            # если его нету на сервере
+            username = await utils.member_display_name(interaction.guild, user_id)
 
             # Медали
             match i:

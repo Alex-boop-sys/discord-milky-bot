@@ -2,6 +2,8 @@
 import re
 import sys
 
+import discord
+
 from config import env, var
 from src.utils.logger import log
 
@@ -35,11 +37,23 @@ class Utils:
             return True
         return guild_id in var.allowed_guild_ids
 
-    @staticmethod
-    def member_display_name(guild, user_id):
-        """Имя участника этого сервера, а если его здесь нет - «Пользователь скрыт»."""
+    async def member_display_name(guild, user_id, bot):
+        """Ник на сервере, если пользователь участник;
+        иначе глобальное имя или username, если удалось получить пользователя.
+        """
         member = guild.get_member(user_id) if guild is not None else None
-        return member.display_name if member is not None else HIDDEN_USER_NAME
+        if member is not None:
+            return member.display_name
+
+        user = bot.get_user(user_id)  # сначала проверяем кэш
+
+        if user is None:
+            try:
+                user = await bot.fetch_user(user_id)
+            except (discord.NotFound, discord.HTTPException):
+                return HIDDEN_USER_NAME
+
+        return user.display_name
 
     @staticmethod
     def is_nsfw_channel(channel):
