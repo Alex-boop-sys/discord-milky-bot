@@ -2,6 +2,7 @@
 """Экономика сервера: геофрукты за подтверждённые успешные бампы."""
 
 import os
+import random
 import re
 import sqlite3
 import time
@@ -164,6 +165,14 @@ class Economy:
                     status TEXT NOT NULL DEFAULT 'queued'
                 )
             """)
+            # Сохраняем результат случайного броска, чтобы повторные правки одного
+            # сообщения не увеличивали вероятность запуска мини-ивента.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS bump_reaction_event_rolls (
+                    source_message_id INTEGER PRIMARY KEY,
+                    should_start INTEGER NOT NULL
+                )
+            """)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS bump_claim_participants (
                     source_message_id INTEGER NOT NULL,
@@ -322,6 +331,31 @@ class Economy:
                 (message_id,),
             ).fetchone()
         return row is not None
+
+    def should_start_reaction_event(self, message_id, chance_percent):
+        """Один раз определяет шанс запуска для подтверждения успешного бампа.
+
+        Решение сохраняется в БД: повторные правки сообщения не бросают шанс заново.
+        """
+        chance_percent = max(0, min(100, int(chance_percent)))
+        with self._connect() as conn:
+            # IMMEDIATE сериализует проверку и запись, чтобы параллельные обработчики
+            # одного сообщения не могли провести два независимых броска.
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT should_start FROM bump_reaction_event_rolls WHERE source_message_id = ?",
+                (message_id,),
+            ).fetchone()
+            if row is not None:
+                return bool(row[0])
+
+            should_start = random.random() < chance_percent / 100
+            conn.execute(
+                """INSERT INTO bump_reaction_event_rolls
+                   (source_message_id, should_start) VALUES (?, ?)""",
+                (message_id, int(should_start)),
+            )
+            return should_start
 
     def reserve_reaction_event(self, message):
         """Резервирует событие, не позволяя обработать подтверждение дважды."""
