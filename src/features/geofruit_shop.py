@@ -54,6 +54,7 @@ class GeoFruitShopView(discord.ui.View):
         super().__init__(timeout=15 * 60)
         self.owner_id = owner_id
         self._closed = False
+        self.shop_message = None
 
         for item in SHOP_ITEMS:
             button = discord.ui.Button(
@@ -165,8 +166,8 @@ class GeoFruitShopView(discord.ui.View):
             response = fallback
 
         # Обновляем баланс на публичной панели магазина, если сообщение ещё доступно.
-        if self.message and self.message.embeds:
-            embed = self.message.embeds[0].copy()
+        if self.shop_message and self.shop_message.embeds:
+            embed = self.shop_message.embeds[0].copy()
             if embed.fields:
                 embed.set_field_at(
                     0,
@@ -175,7 +176,7 @@ class GeoFruitShopView(discord.ui.View):
                     inline=False,
                 )
             try:
-                await self.message.edit(embed=embed)
+                await self.shop_message.edit(embed=embed)
             except discord.HTTPException:
                 pass
 
@@ -198,8 +199,8 @@ class GeoFruitShopView(discord.ui.View):
         # При timeout Discord не гарантирует, что исходное сообщение ещё доступно,
         # поэтому обновление сообщения выполняется best-effort.
         try:
-            if self.message:
-                await self.message.edit(view=self)
+            if self.shop_message:
+                await self.shop_message.edit(view=self)
         except discord.HTTPException:
             pass
 
@@ -247,7 +248,7 @@ class GeoFruitShop:
             embed.set_footer(text="Лавка Милки • Кнопки персональные и действуют 15 минут")
             view = GeoFruitShopView(interaction.user.id)
             await interaction.response.send_message(embed=embed, view=view)
-            view.message = await interaction.original_response()
+            view.shop_message = await interaction.original_response()
 
 
 shop = GeoFruitShop()
