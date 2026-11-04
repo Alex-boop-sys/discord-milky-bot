@@ -536,6 +536,34 @@ class Economy:
         )
         return user_id
 
+    def spend_balance(self, user_id, amount):
+        """Атомарно списывает Геофрукты, если средств достаточно.
+
+        Возвращает новый баланс либо None, если денег не хватает.
+        UPDATE с условием balance >= amount защищает от отрицательного баланса
+        при нескольких одновременных покупках.
+        """
+        amount = int(amount)
+        if amount < 0:
+            raise ValueError("Сумма списания не может быть отрицательной")
+        if amount == 0:
+            return self.get_balance(user_id)
+
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """UPDATE balances
+                   SET balance = balance - ?
+                   WHERE guild_id = ? AND user_id = ? AND balance >= ?""",
+                (amount, ECONOMY_KEY, user_id, amount),
+            )
+            if cursor.rowcount == 0:
+                return None
+            row = conn.execute(
+                "SELECT balance FROM balances WHERE guild_id = ? AND user_id = ?",
+                (ECONOMY_KEY, user_id),
+            ).fetchone()
+        return row[0] if row else 0
+
     @staticmethod
     def currency_word(count):
         """Возвращает правильную форму слова «Геофрукт»."""
