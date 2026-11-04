@@ -94,13 +94,17 @@ class GeoFruitPersonaModal(discord.ui.Modal):
             )
             return
 
+        # Сначала подтверждаем отправку формы: дальнейшие проверки и операции с
+        # SQLite могут занять время на маломощном сервере.
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
         async with lock:
             # Перепроверяем состояние при отправке формы: пользователь мог
             # открыть несколько окон или изменить персону в другом окне.
             current_persona = history.get_persona(self.owner_id)
             creating = self.item["id"] == "create_persona"
             if creating and current_persona is not None:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "Ты уже познакомил Милки со своей персоной! "
                     "Для изменений теперь покупай лот «Изменить свою персону». "
                     "Геофрукты не списаны.",
@@ -108,7 +112,7 @@ class GeoFruitPersonaModal(discord.ui.Modal):
                 )
                 return
             if not creating and current_persona is None:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "У тебя ещё нет персоны. Сначала купи лот "
                     "«Познакомить Милки поближе». Геофрукты не списаны.",
                     ephemeral=True,
@@ -117,7 +121,7 @@ class GeoFruitPersonaModal(discord.ui.Modal):
 
             persona = str(self.persona_input.value).strip()
             if len(persona) < 10 or len(persona) > 500:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "Персона должна содержать от 10 до 500 символов.",
                     ephemeral=True,
                 )
@@ -126,7 +130,7 @@ class GeoFruitPersonaModal(discord.ui.Modal):
             new_balance = economy.spend_balance(self.owner_id, self.item["price"])
             if new_balance is None:
                 current_balance = economy.get_balance(self.owner_id)
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"Недостаточно Геофруктов! Нужно **{self.item['price']} 🫐**, "
                     f"а сейчас **{current_balance} 🫐**.",
                     ephemeral=True,
@@ -148,15 +152,14 @@ class GeoFruitPersonaModal(discord.ui.Modal):
                 log.error(
                     f"Не удалось сохранить персону пользователя {self.owner_id}: {exc}"
                 )
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "Не удалось сохранить персону из-за ошибки базы данных. "
                     "Если Геофрукты были списаны, они возвращены.",
                     ephemeral=True,
                 )
                 return
 
-            # Сначала подтверждаем interaction, затем обновляем публичное сообщение.
-            await interaction.response.defer(ephemeral=True, thinking=True)
+            # Interaction уже подтверждён выше; обновляем публичное сообщение.
             if self.shop_view:
                 await self.shop_view.update_balance(new_balance)
 
@@ -240,23 +243,9 @@ class GeoFruitShopView(discord.ui.View):
 
         # Modal должен быть первым ответом на нажатие кнопки: перед send_modal
         # нельзя вызывать defer(). Оплата происходит только после отправки формы.
+        # Проверка наличия персоны выполняется в on_submit уже после defer(),
+        # чтобы медленный SQLite не задерживал первоначальный ответ Discord.
         if item["id"] in ("create_persona", "edit_persona"):
-            current_persona = history.get_persona(interaction.user.id)
-            if item["id"] == "create_persona" and current_persona is not None:
-                await interaction.response.send_message(
-                    "Ты уже купил создание персоны! Теперь можешь менять её "
-                    "через лот «Изменить свою персону». Геофрукты не списаны.",
-                    ephemeral=True,
-                )
-                return
-            if item["id"] == "edit_persona" and current_persona is None:
-                await interaction.response.send_message(
-                    "Сначала нужно создать персону через лот "
-                    "«Познакомиться с Милки поближе». Геофрукты не списаны.",
-                    ephemeral=True,
-                )
-                return
-
             _shop_last_click[interaction.user.id] = now
             await interaction.response.send_modal(
                 GeoFruitPersonaModal(interaction.user.id, item, self)
