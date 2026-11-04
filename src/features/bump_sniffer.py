@@ -13,13 +13,18 @@ import time
 from collections import Counter, deque
 from datetime import datetime, timezone
 
-from src.features.economy import _component_texts, collect_text, economy, legacy_interaction
+from src.features.economy import (
+    _component_texts,
+    collect_text,
+    economy,
+    legacy_interaction,
+)
 from src.utils.logger import log
 
 DEFAULT_MINUTES = 30
 MAX_MINUTES = 240
 MAX_RECORDS = 200
-TEXT_LIMIT = 1500   # длинные тексты в записях обрезаются
+TEXT_LIMIT = 1500  # длинные тексты в записях обрезаются
 
 VERDICT_TEXT = {
     "reward": "награда напрямую",
@@ -57,7 +62,10 @@ def describe_message(message, raw=None):
                 "author": getattr(getattr(embed, "author", None), "name", None),
                 "footer": getattr(getattr(embed, "footer", None), "text", None),
                 "fields": [
-                    {"name": _cut(getattr(f, "name", None), 200), "value": _cut(getattr(f, "value", None), 500)}
+                    {
+                        "name": _cut(getattr(f, "name", None), 200),
+                        "value": _cut(getattr(f, "value", None), 500),
+                    }
                     for f in getattr(embed, "fields", None) or []
                 ],
             }
@@ -65,8 +73,14 @@ def describe_message(message, raw=None):
 
     report = {
         "message_id": getattr(message, "id", None),
-        "guild": {"id": getattr(guild, "id", None), "name": getattr(guild, "name", None)},
-        "channel": {"id": getattr(channel, "id", None), "name": getattr(channel, "name", None)},
+        "guild": {
+            "id": getattr(guild, "id", None),
+            "name": getattr(guild, "name", None),
+        },
+        "channel": {
+            "id": getattr(channel, "id", None),
+            "name": getattr(channel, "name", None),
+        },
         "author": {
             "id": getattr(author, "id", None),
             "name": getattr(author, "name", None),
@@ -81,7 +95,9 @@ def describe_message(message, raw=None):
         "interaction_metadata": {
             "user_id": getattr(getattr(metadata, "user", None), "id", None),
             "type": str(getattr(metadata, "type", None)),
-            "original_response_message_id": getattr(metadata, "original_response_message_id", None),
+            "original_response_message_id": getattr(
+                metadata, "original_response_message_id", None
+            ),
         }
         if metadata
         else None,
@@ -93,7 +109,9 @@ def describe_message(message, raw=None):
         else None,
         "content": _cut(getattr(message, "content", None)),
         "embeds": embeds,
-        "components_text": [_cut(t, 500) for t in _component_texts(getattr(message, "components", None))],
+        "components_text": [
+            _cut(t, 500) for t in _component_texts(getattr(message, "components", None))
+        ],
         "text_seen_by_milky": _cut(collect_text(message)),
         "diagnosis": economy.diagnose(message),
     }
@@ -166,7 +184,9 @@ class BumpSniffer:
         try:
             entry = describe_message(message, raw=raw)
         except Exception as exc:  # диагностика никогда не должна ломать бота
-            log.warning(f"Диагностика: не удалось описать сообщение {getattr(message, 'id', '?')}: {exc}")
+            log.warning(
+                f"Диагностика: не удалось описать сообщение {getattr(message, 'id', '?')}: {exc}"
+            )
             entry = {"message_id": getattr(message, "id", None), "error": str(exc)}
         entry = {"event": kind, "at": datetime.now(timezone.utc).isoformat(), **entry}
         self._records.append(entry)

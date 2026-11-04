@@ -17,7 +17,7 @@ class EconomyEventHandler:
         self.queued_event_ids = set()
 
     async def start_reaction_bump_event(self, source_message):
-        """Ставит успешный бамп Carl-bot/Discodus в очередь минутных раздач."""
+        """Ставит успешный бамп в очередь минутных раздач."""
         if not economy.reserve_reaction_event(source_message):
             return
         event = {
@@ -51,7 +51,8 @@ class EconomyEventHandler:
             # Для логов: сервер и канал, где идёт эта раздача.
             set_place(
                 place_name(
-                    bot.get_guild(event["guild_id"]), bot.get_channel(event["channel_id"])
+                    bot.get_guild(event["guild_id"]),
+                    bot.get_channel(event["channel_id"]),
                 )
             )
             try:
@@ -63,7 +64,7 @@ class EconomyEventHandler:
                     if channel is None:
                         channel = await bot.fetch_channel(event["channel_id"])
                     announcement = (
-                        "🫐 О-о-о, Милки учуяла свежий бамп! Геофрукты сами в лапки не прыгают!\n"
+                        "🫐 О-о-о, тут целое дерево! Геофрукты сами в лапки не прыгают!\n"
                         f"Поставь {CURRENCY_EMOJI} на это сообщение в течение минуты — и получишь "
                         "по одному Геофрукту!\n⏰ Осталось: **60 секунд**"
                     )
@@ -162,7 +163,7 @@ class EconomyEventHandler:
                     mentions.append(member.mention if member else f"<@{user_id}>")
                 winners = ", ".join(mentions)
                 final_text = (
-                    f"🫐 ХРУМ-ХРУМ! Время вышло — Геофрукты нашли хозяев: {winners}! "
+                    f"🫐 Время вышло, сбор завершён — Геофрукты нашли хозяев: {winners}! "
                     "Каждому по одному сочному Геофрукту!"
                 )
 
@@ -185,7 +186,9 @@ class EconomyEventHandler:
             return
         # Для логов: на каком сервере и в каком канале поставили реакцию.
         set_place(
-            place_name(bot.get_guild(payload.guild_id), bot.get_channel(payload.channel_id))
+            place_name(
+                bot.get_guild(payload.guild_id), bot.get_channel(payload.channel_id)
+            )
         )
         if bot.user and payload.user_id == bot.user.id:
             return

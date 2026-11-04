@@ -67,9 +67,7 @@ def register_slash_commands():
             ephemeral=True,
         )
 
-    @bot.tree.command(
-        name="топ-бамперов", description="Топ-10 игроков по Геофруктам 🫐"
-    )
+    @bot.tree.command(name="топ-гео", description="Топ-10 игроков по Геофруктам 🫐")
     @app_commands.guild_only()
     async def cmd_bump_top(interaction: discord.Interaction):
         from src.features.economy import economy
@@ -87,7 +85,7 @@ def register_slash_commands():
             )
             return
 
-        lines = ["**🫐 Топ-10 бамперов по Геофруктам**", ""]
+        lines = ["**🫐 Топ-10 по Геофруктам**", ""]
         for place, row in enumerate(top_users, 1):
             medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, f"{place}.")
             count = row["balance"]

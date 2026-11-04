@@ -1,4 +1,5 @@
 """Выход с серверов, которых нет в списке ALLOWED_GUILD_IDS."""
+
 import discord
 
 from config import var
