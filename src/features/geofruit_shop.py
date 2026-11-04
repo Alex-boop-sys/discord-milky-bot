@@ -24,9 +24,9 @@ SHOP_ITEMS = (
     {
         "id": "create_persona",
         "emoji": "📜",
-        "name": "Познакомить Милки поближе",
+        "name": "Познакомиться с Милки поближе",
         "description": (
-            "Создай постоянную персону: расскажи Милки, кто ты и что вас связывает. "
+            "Создай постоянную персону: расскажи Милки, кто ты и что вас связывает. Он запомнит это надолго. "
             "Покупается один раз."
         ),
         "price": 20,
@@ -37,7 +37,7 @@ SHOP_ITEMS = (
         "emoji": "✏️",
         "name": "Изменить свою персону",
         "description": (
-            "Обнови описание себя и отношений с Милки. Доступно после создания персоны."
+            "Обнови своё описание и ваши отношений с Милки. Доступно после создания персоны."
         ),
         "price": 2,
         "enabled": True,
@@ -66,7 +66,7 @@ class GeoFruitPersonaModal(discord.ui.Modal):
         self.shop_view = shop_view
         self.persona_input = discord.ui.TextInput(
             style=discord.TextStyle.paragraph,
-            placeholder="Например: я человек, путешественник и старый приятель Милки...",
+            placeholder="Например: Алекс это человек 20 лет, старый знакомый Милки из пещер. В прошлом они ссорились, но затем Алекс помог Милки и они подружились.",
             min_length=10,
             max_length=500,
             required=True,
@@ -252,7 +252,7 @@ class GeoFruitShopView(discord.ui.View):
             if item["id"] == "edit_persona" and current_persona is None:
                 await interaction.response.send_message(
                     "Сначала нужно создать персону через лот "
-                    "«Познакомить Милки поближе». Геофрукты не списаны.",
+                    "«Познакомиться с Милки поближе». Геофрукты не списаны.",
                     ephemeral=True,
                 )
                 return
