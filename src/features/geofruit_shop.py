@@ -39,10 +39,12 @@ SHOP_ITEMS = (
     },
 )
 
-# Защита от слишком частых нажатий: общий лимит пользователя на магазин,
-# не отдельный для каждой кнопки, чтобы переключение кнопок не обходило его.
+# Защита от флуда общая для всех открытых магазинов, чтобы новый /магазин
+# не позволял обойти таймер. asyncio.Lock не даёт двум покупкам идти параллельно.
 SHOP_CLICK_COOLDOWN = 5.0
 SHOP_AI_TIMEOUT = 55
+_shop_last_click = {}
+_shop_user_locks = {}
 
 
 class GeoFruitShopView(discord.ui.View):
@@ -51,8 +53,6 @@ class GeoFruitShopView(discord.ui.View):
     def __init__(self, owner_id: int):
         super().__init__(timeout=15 * 60)
         self.owner_id = owner_id
-        self._click_locks = {}
-        self._last_click = {}
         self._closed = False
 
         for item in SHOP_ITEMS:
@@ -91,7 +91,7 @@ class GeoFruitShopView(discord.ui.View):
             return
 
         now = asyncio.get_running_loop().time()
-        last_click = self._last_click.get(interaction.user.id, 0.0)
+        last_click = _shop_last_click.get(interaction.user.id, 0.0)
         remaining = SHOP_CLICK_COOLDOWN - (now - last_click)
         if remaining > 0:
             await interaction.response.send_message(
@@ -100,7 +100,7 @@ class GeoFruitShopView(discord.ui.View):
             )
             return
 
-        lock = self._click_locks.setdefault(interaction.user.id, asyncio.Lock())
+        lock = _shop_user_locks.setdefault(interaction.user.id, asyncio.Lock())
         if lock.locked():
             await interaction.response.send_message(
                 "Милки уже обрабатывает твою покупку, секундочку!",
@@ -110,7 +110,7 @@ class GeoFruitShopView(discord.ui.View):
 
         async with lock:
             # Ставим cooldown только на принятые покупки, а не на неудачный запрос.
-            self._last_click[interaction.user.id] = now
+            _shop_last_click[interaction.user.id] = now
             await interaction.response.defer(thinking=True, ephemeral=True)
 
             if item["id"] == "treat_milky":
