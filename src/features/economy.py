@@ -564,6 +564,26 @@ class Economy:
             ).fetchone()
         return row[0] if row else 0
 
+    def refund_balance(self, user_id, amount):
+        """Возвращает валюту после неудачного сохранения оплаченной покупки."""
+        amount = int(amount)
+        if amount <= 0:
+            return self.get_balance(user_id)
+
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO balances (guild_id, user_id, balance)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(guild_id, user_id)
+                   DO UPDATE SET balance = balance + excluded.balance""",
+                (ECONOMY_KEY, user_id, amount),
+            )
+            row = conn.execute(
+                "SELECT balance FROM balances WHERE guild_id = ? AND user_id = ?",
+                (ECONOMY_KEY, user_id),
+            ).fetchone()
+        return row[0] if row else 0
+
     @staticmethod
     def currency_word(count):
         """Возвращает правильную форму слова «Геофрукт»."""

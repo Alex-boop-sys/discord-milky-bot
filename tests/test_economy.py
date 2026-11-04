@@ -124,3 +124,10 @@ def test_reaction_event_chance_is_saved_once(eco, monkeypatch):
 def test_reaction_event_chance_boundaries(eco, monkeypatch, chance, random_value, expected):
     monkeypatch.setattr(economy_module.random, "random", lambda: random_value)
     assert eco.should_start_reaction_event(5000 + chance, chance) is expected
+
+
+def test_refund_balance_restores_currency(eco):
+    assert eco.process_bump_message(bump_message()) == 42
+    assert eco.get_balance(42) == 1
+    assert eco.refund_balance(42, 2) == 3
+    assert eco.get_balance(42) == 3
