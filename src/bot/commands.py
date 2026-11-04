@@ -67,6 +67,11 @@ def register_slash_commands():
             ephemeral=True,
         )
 
+    # Магазин экономики вынесен в отдельный модуль, чтобы не перегружать команды.
+    from src.features.geofruit_shop import shop
+
+    shop.register()
+
     @bot.tree.command(name="топ-гео", description="Топ-10 игроков по Геофруктам 🫐")
     @app_commands.guild_only()
     async def cmd_bump_top(interaction: discord.Interaction):
