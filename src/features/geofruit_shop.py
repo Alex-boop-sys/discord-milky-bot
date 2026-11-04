@@ -65,14 +65,19 @@ class GeoFruitPersonaModal(discord.ui.Modal):
         self.item = item
         self.shop_view = shop_view
         self.persona_input = discord.ui.TextInput(
-            label="Расскажи о себе и отношениях с Милки",
             style=discord.TextStyle.paragraph,
             placeholder="Например: я человек, путешественник и старый приятель Милки...",
             min_length=10,
             max_length=500,
             required=True,
         )
-        self.add_item(self.persona_input)
+        # В discord.py 2.6+ TextInput размещается внутри Label.
+        self.add_item(
+            discord.ui.Label(
+                text="Расскажи о себе и отношениях с Милки",
+                component=self.persona_input,
+            )
+        )
 
     async def on_submit(self, interaction: discord.Interaction):
         if interaction.user.id != self.owner_id:
