@@ -7,6 +7,7 @@ from discord import app_commands
 
 from src.features.economy import economy
 from src.services.ai import api
+from src.services.history import history
 from src.utils.json_parser import dicts
 from src.utils.logger import log
 
@@ -21,20 +22,25 @@ SHOP_ITEMS = (
         "enabled": True,
     },
     {
-        "id": "placeholder_2",
-        "emoji": "🎁",
-        "name": "Товар №2",
-        "description": "Этот товар пока готовится. Загляни сюда позже!",
-        "price": 0,
-        "enabled": False,
+        "id": "create_persona",
+        "emoji": "📜",
+        "name": "Познакомить Милки поближе",
+        "description": (
+            "Создай постоянную персону: расскажи Милки, кто ты и что вас связывает. "
+            "Покупается один раз."
+        ),
+        "price": 20,
+        "enabled": True,
     },
     {
-        "id": "placeholder_3",
-        "emoji": "✨",
-        "name": "Товар №3",
-        "description": "Этот товар пока готовится. Загляни сюда позже!",
-        "price": 0,
-        "enabled": False,
+        "id": "edit_persona",
+        "emoji": "✏️",
+        "name": "Изменить свою персону",
+        "description": (
+            "Обнови описание себя и отношений с Милки. Доступно после создания персоны."
+        ),
+        "price": 2,
+        "enabled": True,
     },
 )
 
@@ -44,6 +50,128 @@ SHOP_CLICK_COOLDOWN = 5.0
 SHOP_AI_TIMEOUT = 55
 _shop_last_click = {}
 _shop_user_locks = {}
+
+
+class GeoFruitPersonaModal(discord.ui.Modal):
+    """Форма создания или редактирования постоянной персоны пользователя."""
+
+    def __init__(self, owner_id: int, item: dict, shop_view):
+        creating = item["id"] == "create_persona"
+        super().__init__(
+            title="Создать персону" if creating else "Изменить персону",
+            timeout=5 * 60,
+        )
+        self.owner_id = owner_id
+        self.item = item
+        self.shop_view = shop_view
+        self.persona_input = discord.ui.TextInput(
+            style=discord.TextStyle.paragraph,
+            placeholder="Например: я человек, путешественник и старый приятель Милки...",
+            min_length=10,
+            max_length=500,
+            required=True,
+        )
+        # В discord.py 2.6+ TextInput размещается внутри Label.
+        self.add_item(
+            discord.ui.Label(
+                text="Расскажи о себе и отношениях с Милки",
+                component=self.persona_input,
+            )
+        )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message(
+                "Эта форма принадлежит другому игроку.", ephemeral=True
+            )
+            return
+
+        lock = _shop_user_locks.setdefault(self.owner_id, asyncio.Lock())
+        if lock.locked():
+            await interaction.response.send_message(
+                "Милки уже обрабатывает твою покупку, секундочку!",
+                ephemeral=True,
+            )
+            return
+
+        async with lock:
+            # Перепроверяем состояние при отправке формы: пользователь мог
+            # открыть несколько окон или изменить персону в другом окне.
+            current_persona = history.get_persona(self.owner_id)
+            creating = self.item["id"] == "create_persona"
+            if creating and current_persona is not None:
+                await interaction.response.send_message(
+                    "Ты уже познакомил Милки со своей персоной! "
+                    "Для изменений теперь покупай лот «Изменить свою персону». "
+                    "Геофрукты не списаны.",
+                    ephemeral=True,
+                )
+                return
+            if not creating and current_persona is None:
+                await interaction.response.send_message(
+                    "У тебя ещё нет персоны. Сначала купи лот "
+                    "«Познакомить Милки поближе». Геофрукты не списаны.",
+                    ephemeral=True,
+                )
+                return
+
+            persona = str(self.persona_input.value).strip()
+            if len(persona) < 10 or len(persona) > 500:
+                await interaction.response.send_message(
+                    "Персона должна содержать от 10 до 500 символов.",
+                    ephemeral=True,
+                )
+                return
+
+            new_balance = economy.spend_balance(self.owner_id, self.item["price"])
+            if new_balance is None:
+                current_balance = economy.get_balance(self.owner_id)
+                await interaction.response.send_message(
+                    f"Недостаточно Геофруктов! Нужно **{self.item['price']} 🫐**, "
+                    f"а сейчас **{current_balance} 🫐**.",
+                    ephemeral=True,
+                )
+                return
+
+            try:
+                history.save_persona(self.owner_id, persona)
+            except Exception as exc:
+                # Базы истории и экономики раздельные. Если запись персоны не
+                # удалась после списания, возвращаем валюту отдельной операцией.
+                try:
+                    economy.refund_balance(self.owner_id, self.item["price"])
+                except Exception as refund_exc:
+                    log.error(
+                        f"Не удалось вернуть Геофрукты после ошибки сохранения "
+                        f"персоны пользователя {self.owner_id}: {refund_exc}"
+                    )
+                log.error(
+                    f"Не удалось сохранить персону пользователя {self.owner_id}: {exc}"
+                )
+                await interaction.response.send_message(
+                    "Не удалось сохранить персону из-за ошибки базы данных. "
+                    "Если Геофрукты были списаны, они возвращены.",
+                    ephemeral=True,
+                )
+                return
+
+            # Сначала подтверждаем interaction, затем обновляем публичное сообщение.
+            await interaction.response.defer(ephemeral=True, thinking=True)
+            if self.shop_view:
+                await self.shop_view.update_balance(new_balance)
+
+            action = "создана" if creating else "обновлена"
+            await interaction.followup.send(
+                f"Твоя персона {action}! Теперь Милки будет учитывать её "
+                f"в обычных разговорах. Потрачено **{self.item['price']} 🫐**, "
+                f"остаток **{new_balance} 🫐**.",
+                ephemeral=True,
+            )
+            log.info(
+                f"Магазин: пользователь {self.owner_id} "
+                f"{'создал' if creating else 'изменил'} персону "
+                f"за {self.item['price']} Геофрукт(ов)"
+            )
 
 
 class GeoFruitShopView(discord.ui.View):
@@ -110,6 +238,31 @@ class GeoFruitShopView(discord.ui.View):
             )
             return
 
+        # Modal должен быть первым ответом на нажатие кнопки: перед send_modal
+        # нельзя вызывать defer(). Оплата происходит только после отправки формы.
+        if item["id"] in ("create_persona", "edit_persona"):
+            current_persona = history.get_persona(interaction.user.id)
+            if item["id"] == "create_persona" and current_persona is not None:
+                await interaction.response.send_message(
+                    "Ты уже купил создание персоны! Теперь можешь менять её "
+                    "через лот «Изменить свою персону». Геофрукты не списаны.",
+                    ephemeral=True,
+                )
+                return
+            if item["id"] == "edit_persona" and current_persona is None:
+                await interaction.response.send_message(
+                    "Сначала нужно создать персону через лот "
+                    "«Познакомить Милки поближе». Геофрукты не списаны.",
+                    ephemeral=True,
+                )
+                return
+
+            _shop_last_click[interaction.user.id] = now
+            await interaction.response.send_modal(
+                GeoFruitPersonaModal(interaction.user.id, item, self)
+            )
+            return
+
         async with lock:
             # Ставим cooldown только на принятые покупки, а не на неудачный запрос.
             _shop_last_click[interaction.user.id] = now
@@ -122,6 +275,23 @@ class GeoFruitShopView(discord.ui.View):
             await interaction.followup.send(
                 "Этот товар пока не реализован.", ephemeral=True
             )
+
+    async def update_balance(self, new_balance):
+        """Обновляет баланс на открытой публичной панели магазина."""
+        if not self.shop_message or not self.shop_message.embeds:
+            return
+        embed = self.shop_message.embeds[0].copy()
+        if embed.fields:
+            embed.set_field_at(
+                0,
+                name="👛 Твой баланс",
+                value=f"**{new_balance}** {economy.currency_word(new_balance)} 🫐",
+                inline=False,
+            )
+        try:
+            await self.shop_message.edit(embed=embed)
+        except discord.HTTPException:
+            pass
 
     async def _buy_treat(self, interaction: discord.Interaction, item):
         # Сначала атомарно списываем валюту. Если AI/API не ответит, покупка
@@ -171,19 +341,7 @@ class GeoFruitShopView(discord.ui.View):
             response = fallback
 
         # Обновляем баланс на публичной панели магазина, если сообщение ещё доступно.
-        if self.shop_message and self.shop_message.embeds:
-            embed = self.shop_message.embeds[0].copy()
-            if embed.fields:
-                embed.set_field_at(
-                    0,
-                    name="👛 Твой баланс",
-                    value=f"**{new_balance}** {economy.currency_word(new_balance)} 🫐",
-                    inline=False,
-                )
-            try:
-                await self.shop_message.edit(embed=embed)
-            except discord.HTTPException:
-                pass
+        await self.update_balance(new_balance)
 
         # Публично отправляем ответ Милки в канал, где открыт магазин.
         # Исходный interaction defer остаётся ephemeral — личное подтверждение
