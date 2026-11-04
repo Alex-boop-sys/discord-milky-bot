@@ -10,21 +10,20 @@ from src.services.ai import api
 from src.utils.json_parser import dicts
 from src.utils.logger import log
 
-
 # Каталог отделён от интерфейса. Позже новые лоты можно будет добавить сюда.
 SHOP_ITEMS = (
     {
         "id": "treat_milky",
-        "emoji": "🍓",
+        "emoji": "🫐",
         "name": "Угостить Милки Геофруктом",
-        "description": "Милки с аппетитом съест ягодку и искренне поблагодарит тебя.",
+        "description": "Милки с аппетитом его съест и поблагодарит тебя.",
         "price": 1,
         "enabled": True,
     },
     {
         "id": "placeholder_2",
         "emoji": "🎁",
-        "name": "Сюрприз №2",
+        "name": "Товар №2",
         "description": "Этот товар пока готовится. Загляни сюда позже!",
         "price": 0,
         "enabled": False,
@@ -32,7 +31,7 @@ SHOP_ITEMS = (
     {
         "id": "placeholder_3",
         "emoji": "✨",
-        "name": "Сюрприз №3",
+        "name": "Товар №3",
         "description": "Этот товар пока готовится. Загляни сюда позже!",
         "price": 0,
         "enabled": False,
@@ -60,7 +59,9 @@ class GeoFruitShopView(discord.ui.View):
             button = discord.ui.Button(
                 label="Купить" if item["enabled"] else "Скоро",
                 emoji=item["emoji"],
-                style=discord.ButtonStyle.success if item["enabled"] else discord.ButtonStyle.secondary,
+                style=discord.ButtonStyle.success
+                if item["enabled"]
+                else discord.ButtonStyle.secondary,
                 custom_id=f"geofruit_shop:{item['id']}:{owner_id}",
                 disabled=not item["enabled"],
             )
@@ -118,7 +119,9 @@ class GeoFruitShopView(discord.ui.View):
                 await self._buy_treat(interaction, item)
                 return
 
-            await interaction.followup.send("Этот товар пока не реализован.", ephemeral=True)
+            await interaction.followup.send(
+                "Этот товар пока не реализован.", ephemeral=True
+            )
 
     async def _buy_treat(self, interaction: discord.Interaction, item):
         # Сначала атомарно списываем валюту. Если AI/API не ответит, покупка
@@ -138,8 +141,8 @@ class GeoFruitShopView(discord.ui.View):
             f"Пользователь {user_name} (Discord: <@{interaction.user.id}>) "
             "угостил тебя вкуснейшим Геофруктом. Подробно и живо опиши, как ты "
             "берёшь его своими лапками, с аппетитом откусываешь и ешь, а затем "
-            "искренне благодаришь пользователя. Пиши от лица Милки, в её характере. "
-            "Ответ — готовая реплика для Discord, без пояснений."
+            "искренне благодаришь пользователя. Пиши от лица Милки, в его характере. "
+            "Ответ — готовая реплика, без пояснений."
         )
 
         fallback = (
@@ -159,7 +162,9 @@ class GeoFruitShopView(discord.ui.View):
             log.warning(f"Магазин: AI timeout для пользователя {interaction.user.id}")
             response = None
         except Exception as exc:
-            log.warning(f"Магазин: AI ошибка для пользователя {interaction.user.id}: {exc}")
+            log.warning(
+                f"Магазин: AI ошибка для пользователя {interaction.user.id}: {exc}"
+            )
             response = None
 
         if not response or not response.strip():
@@ -245,14 +250,20 @@ class GeoFruitShop:
 
             for item in SHOP_ITEMS:
                 status = "" if item["enabled"] else "\n*Скоро в продаже*"
-                price = f"**Цена: {item['price']} 🫐**" if item["enabled"] else "**Цена: 0 🫐**"
+                price = (
+                    f"**Цена: {item['price']} 🫐**"
+                    if item["enabled"]
+                    else "**Цена: 0 🫐**"
+                )
                 embed.add_field(
                     name=f"{item['emoji']} {item['name']}",
                     value=f"{item['description']}\n{price}{status}",
                     inline=False,
                 )
 
-            embed.set_footer(text="Лавка Милки • Кнопки персональные и действуют 15 минут")
+            embed.set_footer(
+                text="Лавка Милки • Кнопки персональные и действуют 15 минут"
+            )
             view = GeoFruitShopView(interaction.user.id)
             await interaction.response.send_message(embed=embed, view=view)
             view.shop_message = await interaction.original_response()
