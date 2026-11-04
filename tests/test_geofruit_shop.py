@@ -22,3 +22,5 @@ def test_persona_modal_uses_multiline_labeled_text_input():
     assert modal.persona_input.style == discord.TextStyle.paragraph
     assert modal.persona_input.min_length == 10
     assert modal.persona_input.max_length == 500
+    # Discord ограничивает placeholder для TextInput 100 символами.
+    assert len(modal.persona_input.placeholder) <= 100
