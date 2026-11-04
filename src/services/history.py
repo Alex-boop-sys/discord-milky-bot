@@ -1,9 +1,10 @@
 """Хранение истории диалогов и статистики в SQLite.
 
-Две таблицы с разными задачами:
-  history    - контекст для ИИ. Хранит только последние var.max_history записей
-               каждого игрока, остальное удаляется. /забыть удаляет её целиком.
-  user_stats - счётчик обращений к боту. Только растёт, история на него не влияет.
+Три таблицы с разными задачами:
+  history       - контекст для ИИ. Хранит только последние var.max_history записей
+                  каждого игрока, остальное удаляется. /забыть удаляет её целиком.
+  user_stats    - счётчик обращений к боту. Только растёт, история на него не влияет.
+  user_personas - постоянное описание собеседника, не затрагивается командой /забыть.
 """
 
 import os
@@ -55,18 +56,21 @@ class HistoryService:
         # Существующие сообщения и статистика не изменяются.
         if has_tables and version == 2:
             try:
-                with self.conn:
-                    self.conn.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS user_personas (
-                            user_id    INTEGER PRIMARY KEY,
-                            persona    TEXT    NOT NULL,
-                            updated_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
-                        )
-                        """
+                # Явная транзакция делает создание таблицы и смену версии единым шагом.
+                self.conn.execute("BEGIN IMMEDIATE")
+                self.conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS user_personas (
+                        user_id    INTEGER PRIMARY KEY,
+                        persona    TEXT    NOT NULL,
+                        updated_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )
-                    self.conn.execute("PRAGMA user_version = 3")
+                    """
+                )
+                self.conn.execute("PRAGMA user_version = 3")
+                self.conn.commit()
             except Exception:
+                self.conn.rollback()
                 self.conn.close()
                 raise
             version = SCHEMA_VERSION
@@ -182,7 +186,7 @@ class HistoryService:
         return text.replace("*", "\\*")
 
     def clear_history(self, user_id):
-        """Физически удаляет историю игрока. Счётчик (user_stats) не трогаем."""
+        """Физически удаляет историю игрока. Статистика и персона не затрагиваются."""
         with self.conn:
             cursor = self.conn.execute(
                 "DELETE FROM history WHERE user_id = ?", (user_id,)
