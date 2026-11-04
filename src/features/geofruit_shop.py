@@ -66,7 +66,7 @@ class GeoFruitPersonaModal(discord.ui.Modal):
         self.shop_view = shop_view
         self.persona_input = discord.ui.TextInput(
             style=discord.TextStyle.paragraph,
-            placeholder="Например: Алекс это человек 20 лет, старый знакомый Милки из пещер. В прошлом они ссорились, но затем Алекс помог Милки и они подружились.",
+            placeholder="Например: Алекс это старый друг Милки из пещер и т.д.",
             min_length=10,
             max_length=500,
             required=True,
