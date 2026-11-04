@@ -5,8 +5,7 @@ import asyncio
 import discord
 from discord import app_commands
 
-from config import var
-from src.features.economy import CURRENCY_EMOJI, economy
+from src.features.economy import economy
 from src.services.ai import api
 from src.utils.json_parser import dicts
 from src.utils.logger import log
@@ -165,6 +164,21 @@ class GeoFruitShopView(discord.ui.View):
         if not response or not response.strip():
             response = fallback
 
+        # Обновляем баланс на публичной панели магазина, если сообщение ещё доступно.
+        if self.message and self.message.embeds:
+            embed = self.message.embeds[0].copy()
+            if embed.fields:
+                embed.set_field_at(
+                    0,
+                    name="👛 Твой баланс",
+                    value=f"**{new_balance}** {economy.currency_word(new_balance)} 🫐",
+                    inline=False,
+                )
+            try:
+                await self.message.edit(embed=embed)
+            except discord.HTTPException:
+                pass
+
         await interaction.followup.send(
             f"{response.strip()}\n\n"
             f"*Потрачено: {item['price']} 🫐 • Остаток: {new_balance} 🫐*",
@@ -195,8 +209,10 @@ class GeoFruitShop:
 
     @staticmethod
     def register():
+        from src.bot.bot import bot
+
+        @bot.tree.command(name="магазин", description="Открыть лавку Геофруктов 🫐")
         @app_commands.guild_only()
-        @app_commands.command(name="магазин", description="Открыть лавку Геофруктов 🫐")
         async def shop(interaction: discord.Interaction):
             if not economy.enabled_in(interaction.guild_id):
                 await interaction.response.send_message(
