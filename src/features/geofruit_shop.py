@@ -180,11 +180,18 @@ class GeoFruitShopView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-        await interaction.followup.send(
-            f"{response.strip()}\n\n"
-            f"*Потрачено: {item['price']} 🫐 • Остаток: {new_balance} 🫐*",
-            ephemeral=True,
+        # Публично отправляем ответ Милки в канал, где открыт магазин.
+        # Исходный interaction defer остаётся ephemeral — личное подтверждение
+        # покупки и ошибки не засоряют канал.
+        await interaction.channel.send(
+            response.strip(),
             allowed_mentions=discord.AllowedMentions.none(),
+        )
+
+        await interaction.followup.send(
+            f"Покупка завершена! Потрачено: **{item['price']} 🫐** "
+            f"• Остаток: **{new_balance} 🫐**",
+            ephemeral=True,
         )
         log.info(
             f"Магазин: пользователь {interaction.user.id} купил {item['id']} "
