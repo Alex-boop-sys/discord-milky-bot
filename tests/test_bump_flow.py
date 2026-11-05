@@ -161,6 +161,13 @@ def test_economy_is_asked_only_about_edits_of_other_bots(flow, monkeypatch):
 def test_known_initiator_minigame_chance_is_decided_only_once(flow, monkeypatch):
     message_id = next_id()
     random_calls = []
+    # Фикстура flow по умолчанию подменяет этот метод на «всегда True».
+    # Для этого теста возвращаем настоящий метод экономики.
+    monkeypatch.setattr(
+        flow.eco,
+        "should_start_reaction_event",
+        economy_module.Economy.should_start_reaction_event.__get__(flow.eco),
+    )
     # Проверяем настоящий метод экономики: он должен сохранить первый результат
     # в БД и не бросать шанс повторно при правке того же сообщения.
     monkeypatch.setattr(
