@@ -44,7 +44,7 @@ class Api:
             return result
         if result[-1] in END_CHARS or _is_emoji(result[-1]):
             return result
-        search_window = result[-100:]
+        search_window = result[-70:]
         last_valid_index = -1
         for i in range(len(search_window) - 1, -1, -1):
             if search_window[i] in END_CHARS:
@@ -311,9 +311,13 @@ class Api:
                 log.getChild(provider.upper()).warning(f"Проверка {model}: {exc}")
                 result = None
             ok = isinstance(result, str) and bool(result.strip())
-            return ProviderCheck(provider, model, "ok" if ok else "fail", time.monotonic() - started)
+            return ProviderCheck(
+                provider, model, "ok" if ok else "fail", time.monotonic() - started
+            )
 
-        return list(await asyncio.gather(*(probe(p, m) for p, m in var.fallback_models)))
+        return list(
+            await asyncio.gather(*(probe(p, m) for p, m in var.fallback_models))
+        )
 
     # ОТДЕЛЬНЫЙ ЗАПРОС ИИ БЕЗ ИСТОРИИ ДИАЛОГА
     async def ask_standalone(self, message, system_prompt=None):

@@ -112,19 +112,21 @@ class MessageHandlers:
     async def handle_economy(self, message):
         """Награда за бамп. Вызывается и для новых сообщений, и для их правок: повторы
         безопасны, один бамп награждается не более одного раза."""
-        # 1. Инициатор известен наверняка: обычная награда напрямую.
+        # Инициатор известен наверняка: обычная награда напрямую.
         rewarded_user_id = economy.process_bump_message(message)
         if rewarded_user_id is not None:
             # Сообщаем о награде в том же канале, где бот подтвердил бамп.
-            member = message.guild.get_member(rewarded_user_id) if message.guild else None
+            member = (
+                message.guild.get_member(rewarded_user_id) if message.guild else None
+            )
             mention = member.mention if member else f"<@{rewarded_user_id}>"
             await message.channel.send(
                 f"🫐 Хрум! {mention} получает Геофрукт за успешный бамп! "
                 "(Чтобы тоже получить Геофрукт, используй `/bump`.)"
             )
 
-        # 2. У Carl-bot / Discodus мини-ивент может начаться независимо от того,
-        # удалось ли определить инициатора. Решение о 50% шансе сохраняется в БД,
+        # мини-ивент
+        # Решение о 50% шансе сохраняется в БД,
         # поэтому повторные правки сообщения не запускают новые броски.
         if economy.is_reaction_bump_success(message):
             if economy.should_start_reaction_event(
