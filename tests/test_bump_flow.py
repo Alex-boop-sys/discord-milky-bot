@@ -9,6 +9,7 @@ from src.bot.handlers import economy as events_module
 from src.bot.handlers import messages as messages_module
 from src.bot.handlers.economy import EconomyEventHandler
 from src.bot.handlers.messages import MessageHandlers
+from src.features import economy as economy_module
 from src.features.bump_sniffer import BumpSniffer
 from tests.real_messages import BUMPER, DISBOARD, LOADING, make_real_message, next_id
 
@@ -159,11 +160,13 @@ def test_economy_is_asked_only_about_edits_of_other_bots(flow, monkeypatch):
 
 def test_known_initiator_minigame_chance_is_decided_only_once(flow, monkeypatch):
     message_id = next_id()
-    decisions = []
+    random_calls = []
+    # Проверяем настоящий метод экономики: он должен сохранить первый результат
+    # в БД и не бросать шанс повторно при правке того же сообщения.
     monkeypatch.setattr(
-        flow.eco,
-        "should_start_reaction_event",
-        lambda source_id, chance: decisions.append((source_id, chance)) or False,
+        economy_module.random,
+        "random",
+        lambda: random_calls.append(True) or 0.9,  # шанс 50% не проходит
     )
 
     message = make_real_message(message_id=message_id, content=SUCCESS)
@@ -172,4 +175,4 @@ def test_known_initiator_minigame_chance_is_decided_only_once(flow, monkeypatch)
 
     assert flow.eco.get_balance(BUMPER) == 1
     assert queued(flow) == 0
-    assert decisions == [(message_id, 50)]                                        # только один бросок
+    assert random_calls == [True]                                                  # только один случайный бросок
