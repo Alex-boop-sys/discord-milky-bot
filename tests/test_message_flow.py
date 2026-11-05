@@ -70,7 +70,7 @@ def test_deleted_original_message_does_not_break_search():
     assert find(make_message("Милки, привет", reply_to="missing")) == ("name", "привет")
 
 
-# ------------------------------------------- чужие команды и «\» игнорируются
+# ------------------------------------------- чужие команды и «\\» игнорируются
 
 PATHS = [
     ("name", lambda text: make_message(f"Милки {text}")),
@@ -80,7 +80,7 @@ PATHS = [
 
 
 @pytest.mark.parametrize("path, build", PATHS, ids=[p for p, _ in PATHS])
-@pytest.mark.parametrize("text", ["!play song", ".r d20", "/help", "-skip", ";p", "\\не отвечай", "\\"])
+@pytest.mark.parametrize("text", ["!play song", ".r d20", "/help", "-skip", ";p", "\\\\не отвечай", "\\\\"])
 def test_foreign_commands_are_ignored(ask, path, build, text):
     message = build(text)
     say(message)
@@ -243,7 +243,11 @@ def test_economy_reward_is_announced_with_mention(monkeypatch):
 
 def test_reaction_bump_starts_event_when_initiator_is_unknown(monkeypatch):
     fake_economy = SimpleNamespace(
-        is_reaction_bump_success=lambda m: True, process_bump_message=lambda m: None, is_rewarded=lambda m: False
+        is_reaction_bump_success=lambda m: True,
+        process_bump_message=lambda m: None,
+        is_rewarded=lambda m: False,
+        # Обработчик теперь отдельно проверяет вероятность запуска события.
+        should_start_reaction_event=lambda message_id, chance: True,
     )
     monkeypatch.setattr(messages_module, "economy", fake_economy)
     start = AsyncMock()
