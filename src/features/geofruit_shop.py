@@ -114,7 +114,7 @@ class GeoFruitPersonaModal(discord.ui.Modal):
             if not creating and current_persona is None:
                 await interaction.followup.send(
                     "У тебя ещё нет персоны. Сначала купи лот "
-                    "«Познакомить Милки поближе». Геофрукты не списаны.",
+                    "«Познакомиться с Милки поближе». Геофрукты не списаны.",
                     ephemeral=True,
                 )
                 return
