@@ -335,6 +335,8 @@ def test_admin_command_works_through_normal_address_and_skips_ai(world, monkeypa
     handlers.client = world.client                          # так клиент попадает в setup()
 
     message = make_message(f"Милки root# say {C1} Привет из админки", author_id=OWNER)
+    # Это тест серверного обращения: после добавления DM-логики явно задаём сервер.
+    message.guild = world.guild1
     asyncio.run(handlers.check_ping(message, BOT))
 
     world.c1.send.assert_awaited_once_with("Привет из админки")
