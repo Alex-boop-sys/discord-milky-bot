@@ -31,9 +31,7 @@ from src.utils.utils import utils
 
 # Способы обращения к Милки и как они называются в логе.
 REPLY, MENTION, NAME, DM = "reply", "mention", "name", "dm"
-LOG_LABELS = {
-    REPLY: "reply", MENTION: "сообщение", NAME: "сообщение", DM: "ЛС"
-}
+LOG_LABELS = {REPLY: "Ответ", MENTION: "@Упоминание", NAME: "Имя", DM: "ЛС"}
 
 
 class MessageHandlers:
