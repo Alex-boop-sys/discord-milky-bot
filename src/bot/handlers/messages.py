@@ -30,8 +30,10 @@ from src.utils.triggers import looks_like_foreign_command, match_trigger
 from src.utils.utils import utils
 
 # Способы обращения к Милки и как они называются в логе.
-REPLY, MENTION, NAME = "reply", "mention", "name"
-LOG_LABELS = {REPLY: "reply", MENTION: "сообщение", NAME: "сообщение"}
+REPLY, MENTION, NAME, DM = "reply", "mention", "name", "dm"
+LOG_LABELS = {
+    REPLY: "reply", MENTION: "сообщение", NAME: "сообщение", DM: "ЛС"
+}
 
 
 class MessageHandlers:
@@ -175,6 +177,10 @@ class MessageHandlers:
         ответ на сообщение бота, упоминание через @, обращение по имени.
         """
         content = message.content
+
+        # ЛИЧНЫЕ СООБЩЕНИЯ: любое сообщение пользователя считается обращением.
+        if message.guild is None:
+            return DM, content.strip()
 
         # ОТВЕТ НА СООБЩЕНИЕ БОТА
         if message.reference and message.reference.message_id:
