@@ -56,7 +56,7 @@ class MorningGreetings:
             ],
             1: [
                 "можно пошутить, что неделя уже набрала ход",
-                "пожелать приятного фурри фторника (намеренная забавная опечатка в слове вторник)",
+                "пожелать приятного вторника",
             ],
             2: [
                 "можно отметить, что неделя уже добралась до середины",
@@ -215,19 +215,27 @@ class MorningGreetings:
                 if channel is None:
                     channel = await bot.fetch_channel(channel_id)
             except (discord.HTTPException, discord.Forbidden, discord.NotFound) as exc:
-                log.warning(f"Утреннее приветствие: канал {channel_id} недоступен: {exc}")
+                log.warning(
+                    f"Утреннее приветствие: канал {channel_id} недоступен: {exc}"
+                )
                 continue
 
             guild = getattr(channel, "guild", None)
             with log_place(place_name(guild, channel)):
                 if guild is not None and not utils.is_guild_allowed(guild.id):
-                    log.warning("Утреннее приветствие пропущено: сервер не в ALLOWED_GUILD_IDS")
+                    log.warning(
+                        "Утреннее приветствие пропущено: сервер не в ALLOWED_GUILD_IDS"
+                    )
                     continue
                 try:
                     await channel.send(
                         text, allowed_mentions=discord.AllowedMentions.none()
                     )
-                except (discord.HTTPException, discord.Forbidden, discord.NotFound) as exc:
+                except (
+                    discord.HTTPException,
+                    discord.Forbidden,
+                    discord.NotFound,
+                ) as exc:
                     log.warning(f"Не удалось отправить утреннее приветствие: {exc}")
                     continue
 
