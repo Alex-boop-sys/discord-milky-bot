@@ -27,12 +27,26 @@ def ask(monkeypatch):
     return mock
 
 
+def _as_server_message(message):
+    """Существующие тесты без явного DM проверяют сообщения на сервере."""
+    if not getattr(message, "_is_dm", False):
+        message.guild = SimpleNamespace(id=123, me=BOT)
+    return message
+
+
+def dm_message(content, **kwargs):
+    """Создаёт личное сообщение (guild=None), в отличие от серверных тестов."""
+    message = make_message(content, **kwargs)
+    message._is_dm = True
+    return message
+
+
 def say(message):
-    asyncio.run(MessageHandlers().check_ping(message, BOT))
+    asyncio.run(MessageHandlers().check_ping(_as_server_message(message), BOT))
 
 
 def find(message):
-    return asyncio.run(MessageHandlers.find_request(message, BOT))
+    return asyncio.run(MessageHandlers.find_request(_as_server_message(message), BOT))
 
 
 # ------------------------------------------------------------ find_request
@@ -52,6 +66,25 @@ def find(message):
 )
 def test_find_request_by_text(content, expected):
     assert find(make_message(content)) == expected
+
+
+def test_any_direct_message_is_an_address_to_milky():
+    assert find(dm_message("привет")) == ("dm", "привет")
+    assert find(dm_message("просто текст без имени")) == ("dm", "просто текст без имени")
+
+
+def test_direct_message_is_answered_without_name_or_mention(ask):
+    message = dm_message("Привет, как дела?")
+    say(message)
+    ask.assert_awaited_once_with(5, "Алекс", "Привет, как дела?")
+    message.reply.assert_awaited_once_with("ответ")
+
+
+def test_direct_message_with_attachment_gets_image_reply(ask):
+    message = dm_message("", attachments=["картинка.png"])
+    say(message)
+    ask.assert_not_called()
+    assert message.reply.await_args.args[0] in dicts.get("image_responses")
 
 
 def test_find_request_for_reply_to_bot():
