@@ -20,7 +20,11 @@ from src.utils.triggers import looks_like_foreign_command, match_trigger
         ("сделай изображение дракона", ("gen", "дракона")),
     ],
 )
-def test_triggers_are_recognized(text, expected):
+def test_triggers_are_recognized(text, expected, monkeypatch):
+    # Проверяем распознавание обеих функций независимо от настроек по умолчанию.
+    from config import FEATURES
+
+    monkeypatch.setitem(FEATURES["slash_commands"], "gen", True)
     assert match_trigger(text) == expected
 
 
