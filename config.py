@@ -11,7 +11,7 @@ env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(env_path)
 
 # Версия используется административной командой root# ver.
-VERSION = "0.6.0 [INDEV]"
+VERSION = "0.7.0 [INDEV]"
 
 
 # Переключатели функциональности. Изменения применяются после перезапуска бота.
