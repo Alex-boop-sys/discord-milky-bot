@@ -14,6 +14,25 @@ load_dotenv(env_path)
 VERSION = "0.6.0 [INDEV]"
 
 
+# Переключатели функциональности. Изменения применяются после перезапуска бота.
+# Значения по умолчанию сохраняют текущее поведение: ранее закомментированные
+# команды остаются выключенными, а уже работающие функции — включёнными.
+FEATURES = {
+    "economy": True,              # Баланс, магазин, топ и все награды за бампы.
+    "morning_greetings": True,    # Ежедневные автоматические приветствия.
+    "admin_commands": True,       # Команды владельцев через root#.
+    "slash_commands": {
+        "art": True,              # /арт и текстовые триггеры поиска арта.
+        "gen": False,             # /ген и текстовые триггеры генерации.
+        "fur": True,              # /фурь.
+        "ship": False,            # /шип.
+        "ask": False,             # /спросить.
+        "hug": False,             # /обнять.
+        "stats": True,            # /стат.
+    },
+}
+
+
 # ENV ПЕРЕМЕННЫЕ
 class Env:
     def __init__(self):
@@ -161,7 +180,6 @@ class Var:
         self.morning_greetings_channel_ids = _env_int_list("GREETINGS_CHANNEL_IDS")
 
         # УТРЕННИЕ ПРИВЕТСТВИЯ МИЛКИ (время задаётся в UTC)
-        self.morning_greetings_enabled = True
         self.morning_greetings_start_hour_utc = 4
         self.morning_greetings_end_hour_utc = 5
         self.morning_greetings_attempts = 3
