@@ -151,9 +151,11 @@ class Var:
         self.intents = discord.Intents.default()
         self.intents.message_content = True
         self.intents.members = True
-        # Presence Intent выключен: он нужен только командам /шип и /обнять
-        # (сейчас они отключены). Если вернёте их, включите здесь
-        # self.intents.presences = True и Presence Intent на портале разработчиков Discord.
+        # Командам /шип и /обнять нужен Presence Intent. Включаем его автоматически,
+        # если хотя бы одна из этих команд активирована в FEATURES. Дополнительно
+        # включите Presence Intent в Discord Developer Portal -> Bot -> Privileged Gateway Intents.
+        if FEATURES["slash_commands"]["ship"] or FEATURES["slash_commands"]["hug"]:
+            self.intents.presences = True
 
         self.bot_ver = VERSION
 
