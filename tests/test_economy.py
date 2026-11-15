@@ -81,6 +81,30 @@ def test_reaction_event_full_cycle(eco):
     assert eco.get_top() == [{"user_id": 7, "balance": 1}]
 
 
+def test_only_one_reaction_event_per_guild_can_be_queued_or_active(eco):
+    first = bump_message(
+        message_id=101,
+        author_id=CARL_BOT,
+        user_id=None,
+        content="You've successfully bumped this server",
+    )
+    second = bump_message(
+        message_id=102,
+        author_id=CARL_BOT,
+        user_id=None,
+        content="You've successfully bumped this server",
+    )
+
+    assert eco.reserve_reaction_event(first) is True
+    assert eco.reserve_reaction_event(second) is False  # первая игра ещё в очереди
+
+    eco.activate_reaction_event(first.id, 9001)
+    assert eco.reserve_reaction_event(second) is False  # первая игра уже активна
+
+    assert eco.finish_reaction_event(first.id) == []    # завершили первую игру
+    assert eco.reserve_reaction_event(second) is True   # теперь можно резервировать следующую
+
+
 def test_connections_are_closed_after_use(eco):
     with eco._connect() as conn:
         conn.execute("SELECT 1")
