@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import discord
 import pytest
 
-from config import paths, var
+from config import FEATURES, paths, var
 from src.features.morning_greetings import MorningGreetings
 
 TODAY = date(2026, 11, 2)
@@ -96,7 +96,7 @@ def test_unknown_guild_is_skipped(mg, monkeypatch):
 
 def test_scheduler_is_not_started_without_channels(mg, monkeypatch):
     # Без каналов планировщик не нужен: иначе бот каждое утро зря тратил бы запросы к ИИ.
-    monkeypatch.setattr(var, "morning_greetings_enabled", True)
+    monkeypatch.setitem(FEATURES, "morning_greetings", True)
     monkeypatch.setattr(var, "morning_greetings_channel_ids", [])
     asyncio.run(mg.start(SimpleNamespace()))
     assert mg.task is None
