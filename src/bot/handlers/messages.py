@@ -12,7 +12,7 @@ import math
 
 import discord
 
-from config import var
+from config import FEATURES, var
 from src.bot.admin_commands import admin_commands
 from src.bot.handlers.economy import economy_events
 from src.bot.handlers.guilds import guild_handlers
@@ -104,7 +104,8 @@ class MessageHandlers:
                 type=discord.ActivityType.watching, name="Фырк 🐺"
             )
         )
-        await self.resume_reaction_events(bot)
+        if FEATURES["economy"]:
+            await self.resume_reaction_events(bot)
         await morning_greetings.start(bot)
 
     # -------------------------------------------------------------- экономика
@@ -112,6 +113,8 @@ class MessageHandlers:
     async def handle_economy(self, message):
         """Награда за бамп. Вызывается и для новых сообщений, и для их правок: повторы
         безопасны, один бамп награждается не более одного раза."""
+        if not FEATURES["economy"]:
+            return
         # Инициатор известен наверняка: обычная награда напрямую.
         rewarded_user_id = economy.process_bump_message(message)
         if rewarded_user_id is not None:
