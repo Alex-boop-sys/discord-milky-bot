@@ -59,7 +59,7 @@ HELP_TEXT = (
     "`root# status` — состояние бота\n"
     "`root# ai` — проверить ИИ-провайдеров\n"
     "`root# inspect [[ид_сервера] ид_канала] ид_сообщения` — что Милки видит в сообщении (бампы)\n"
-    "`root# sniff on|off|show|clear|status` — записывать сообщения ботов (диагностика бампов)\n"
+    "`root# sniff on|off|show|clear|status` — записывать сообщения ботов (диагностика бампов) [отключена]\n"
     "`root# say [ид_сервера] ид_канала текст` — написать от имени Милки в канал\n"
     "`root# reply [[ид_сервера] ид_канала] ид_сообщения текст` — ответить на сообщение\n"
     "`root# reaction [[ид_сервера] ид_канала] ид_сообщения эмодзи` — поставить реакцию\n"
@@ -275,6 +275,11 @@ class AdminCommands:
                 "Неавторизованная попытка выполнить root# от пользователя %s",
                 message.author.id,
             )
+            return True
+
+        # Диагностика сообщений ботов отключается независимо от остальных root# команд.
+        if command == "sniff" and not FEATURES["sniff"]:
+            await self._info_reply(message, "Команда `root# sniff` временно отключена.")
             return True
 
         action = self._commands.get(command)
