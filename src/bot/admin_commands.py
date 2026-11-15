@@ -255,10 +255,11 @@ class AdminCommands:
         `client` - объект бота Discord (нужен, чтобы находить каналы на любых серверах).
         """
         cleaned = request.strip()
-        if not FEATURES["admin_commands"]:
-            return False
         if not cleaned.lower().startswith(ADMIN_TRIGGER):
             return False
+        # Если административные команды выключены, не передаём root# в обычный запрос к ИИ.
+        if not FEATURES["admin_commands"]:
+            return True
 
         # Название команды не зависит от регистра, а текст после него остаётся как есть.
         parts = cleaned[len(ADMIN_TRIGGER) :].split(maxsplit=1)
