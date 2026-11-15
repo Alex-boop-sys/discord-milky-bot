@@ -5,6 +5,7 @@ import time
 
 import discord
 
+from config import FEATURES
 from src.features.economy import CURRENCY_EMOJI, economy
 from src.utils.logger import log, place_name, set_place
 
@@ -18,6 +19,8 @@ class EconomyEventHandler:
 
     async def start_reaction_bump_event(self, source_message):
         """Ставит успешный бамп в очередь минутных раздач."""
+        if not FEATURES["economy"]:
+            return
         if not economy.reserve_reaction_event(source_message):
             return
         event = {
@@ -180,6 +183,8 @@ class EconomyEventHandler:
 
     async def on_raw_reaction_add(self, payload):
         """Учитывает добавление 🫐 к активному сообщению-раздаче."""
+        if not FEATURES["economy"]:
+            return
         from src.bot.bot import bot
 
         if not economy.enabled_in(payload.guild_id):
@@ -212,6 +217,8 @@ class EconomyEventHandler:
 
     async def resume_reaction_events(self, bot):
         """Восстанавливает активные отсчёты и очередь после перезапуска бота."""
+        if not FEATURES["economy"]:
+            return
         # Сначала продолжаем уже начатую раздачу, затем запускаем ожидающие.
         for event in economy.get_active_reaction_events():
             source_message_id = event["source_message_id"]

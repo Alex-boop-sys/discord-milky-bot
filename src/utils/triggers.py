@@ -1,7 +1,7 @@
 """Распознавание команд в тексте обращения к Милки (поиск арта, генерация картинки)."""
 import re
 
-from config import var
+from config import FEATURES, var
 
 # \b - граница слова: «арт» сработает на «арт лиса», но не на «артём».
 ART_RE = re.compile(r"^(?:найди\s+арт|арт|art|рисунок)\b[\s,:]*")
@@ -15,6 +15,9 @@ def match_trigger(request):
     """Возвращает ("art" | "gen", остаток запроса) либо None, если это обычное сообщение."""
     text = request.lower().strip()
     for kind, pattern in (("art", ART_RE), ("gen", GEN_RE)):
+        # Слэш-команда и её текстовый аналог управляются одним переключателем.
+        if not FEATURES["slash_commands"][kind]:
+            continue
         match = pattern.match(text)
         if match:
             return kind, text[match.end():].strip()

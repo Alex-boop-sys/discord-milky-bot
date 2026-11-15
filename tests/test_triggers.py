@@ -54,6 +54,14 @@ def test_ordinary_text_is_not_a_foreign_command(text):
     assert not looks_like_foreign_command(text)
 
 
+@pytest.mark.parametrize("kind, request", [("art", "арт лиса"), ("gen", "ген кот")])
+def test_text_trigger_respects_feature_flag(monkeypatch, kind, request):
+    from config import FEATURES
+
+    monkeypatch.setitem(FEATURES["slash_commands"], kind, False)
+    assert match_trigger(request) is None
+
+
 def test_prefix_list_is_configurable(monkeypatch):
     from config import var
 

@@ -5,6 +5,7 @@ import asyncio
 import discord
 from discord import app_commands
 
+from config import FEATURES
 from src.features.economy import economy
 from src.services.ai import api
 from src.services.history import history
@@ -369,6 +370,8 @@ class GeoFruitShop:
 
     @staticmethod
     def register():
+        if not FEATURES["economy"]:
+            return
         from src.bot.bot import bot
 
         @bot.tree.command(name="магазин", description="Открыть лавку Геофруктов 🫐")

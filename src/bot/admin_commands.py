@@ -22,7 +22,7 @@ from pathlib import Path
 
 import discord
 
-from config import VERSION, env, paths, var
+from config import FEATURES, VERSION, env, paths, var
 from src.features.bump_sniffer import (
     DEFAULT_MINUTES,
     MAX_MINUTES,
@@ -257,6 +257,9 @@ class AdminCommands:
         cleaned = request.strip()
         if not cleaned.lower().startswith(ADMIN_TRIGGER):
             return False
+        # Если административные команды выключены, не передаём root# в обычный запрос к ИИ.
+        if not FEATURES["admin_commands"]:
+            return True
 
         # Название команды не зависит от регистра, а текст после него остаётся как есть.
         parts = cleaned[len(ADMIN_TRIGGER) :].split(maxsplit=1)
