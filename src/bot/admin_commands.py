@@ -22,7 +22,7 @@ from pathlib import Path
 
 import discord
 
-from config import VERSION, env, paths, var
+from config import FEATURES, VERSION, env, paths, var
 from src.features.bump_sniffer import (
     DEFAULT_MINUTES,
     MAX_MINUTES,
@@ -255,6 +255,8 @@ class AdminCommands:
         `client` - объект бота Discord (нужен, чтобы находить каналы на любых серверах).
         """
         cleaned = request.strip()
+        if not FEATURES["admin_commands"]:
+            return False
         if not cleaned.lower().startswith(ADMIN_TRIGGER):
             return False
 
