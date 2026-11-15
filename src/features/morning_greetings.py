@@ -8,7 +8,7 @@ from datetime import datetime, time, timedelta, timezone
 
 import discord
 
-from config import paths, var
+from config import FEATURES, paths, var
 from src.services.ai import api
 from src.utils.json_parser import dicts
 from src.utils.logger import log, log_place, place_name
@@ -100,7 +100,7 @@ class MorningGreetings:
 
     async def start(self, bot):
         """Запускает одну фоновую задачу, в том числе при повторном on_ready."""
-        if not var.morning_greetings_enabled:
+        if not FEATURES["morning_greetings"]:
             return
         if not var.morning_greetings_channel_ids:
             log.warning(
