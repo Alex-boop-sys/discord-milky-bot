@@ -79,6 +79,7 @@ def test_help_describes_every_command():
         assert f"root# {command}" in HELP_TEXT
     # Подсказка о формате есть у всех команд, которые принимают параметры.
     assert set(USAGE) == {"ban", "unban", "inspect", "sniff", "say", "reply", "reaction", "del"}
+    assert "`root# sniff" in HELP_TEXT and "[отключена]" in HELP_TEXT
 
 
 # --------------------------------------------------------------------- say
