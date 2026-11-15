@@ -358,8 +358,20 @@ class Economy:
             return should_start
 
     def reserve_reaction_event(self, message):
-        """Резервирует событие, не позволяя обработать подтверждение дважды."""
+        """Резервирует событие, если на сервере ещё нет другой мини-игры."""
         with self._connect() as conn:
+            # Сериализуем проверку и вставку: два почти одновременных бампа
+            # не должны оба зарезервировать отдельные мини-игры.
+            conn.execute("BEGIN IMMEDIATE")
+            active_event = conn.execute(
+                """SELECT 1 FROM bump_claim_events
+                   WHERE guild_id = ? AND status IN ('queued', 'active')
+                   LIMIT 1""",
+                (message.guild.id,),
+            ).fetchone()
+            if active_event:
+                return False
+
             cursor = conn.execute(
                 """INSERT OR IGNORE INTO bump_claim_events
                    (source_message_id, guild_id, channel_id, bump_bot_id, status)
