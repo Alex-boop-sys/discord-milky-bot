@@ -20,6 +20,12 @@ def sent_json(message):
     return json.loads(message.reply.await_args.kwargs["file"].fp.read().decode("utf-8"))
 
 
+@pytest.fixture(autouse=True)
+def enable_sniff_for_tests(monkeypatch):
+    # Большинство тестов проверяет работу команды; отдельный тест проверяет отключённое состояние.
+    monkeypatch.setitem(admin_module.FEATURES, "sniff", True)
+
+
 @pytest.fixture
 def sniffer(monkeypatch):
     fresh = BumpSniffer()
@@ -114,6 +120,13 @@ def test_inspect_of_missing_message(world):
 
 
 # ----------------------------------------------------------------------- sniff
+
+def test_sniff_is_blocked_when_feature_is_disabled(world, sniffer, monkeypatch):
+    monkeypatch.setitem(admin_module.FEATURES, "sniff", False)
+    _, message = run("root# sniff on", world)
+    assert replied(message) == ["Команда `root# sniff` временно отключена."]
+    assert not sniffer.is_active()
+
 
 def test_sniff_on_defaults_to_thirty_minutes(world, sniffer):
     _, message = run("root# sniff on", world)
