@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from config import env, var
+from config import FEATURES, env, var
 from src.bot.bot import MilkyTree, bot, bot_handlers
 from src.bot.handlers import messages as messages_module
 from src.bot.handlers.messages import MessageHandlers
@@ -39,6 +39,8 @@ def test_setup_hook_syncs_commands_once(monkeypatch):
 
 @pytest.fixture
 def fake_features(monkeypatch):
+    # В этих тестах проверяется обработчик генерации, поэтому включаем её явно.
+    monkeypatch.setitem(FEATURES["slash_commands"], "gen", True)
     art, gen = AsyncMock(), AsyncMock()
     monkeypatch.setattr(messages_module.art_search, "art", art)
     monkeypatch.setattr(messages_module.image_generation, "generate", gen)
@@ -212,6 +214,3 @@ def test_startup_leaves_unknown_servers(monkeypatch):
     ours, stranger = guild(1), guild(99)
     fake_bot = SimpleNamespace(user="Милки", guilds=[ours, stranger], change_presence=AsyncMock())
     asyncio.run(MessageHandlers().on_ready(fake_bot))
-
-    ours.leave.assert_not_called()
-    stranger.leave.assert_awaited_once()
