@@ -69,7 +69,7 @@ class EconomyEventHandler:
                     announcement = (
                         "🫐 О-о-о, тут целое дерево! Геофрукты сами в лапки не прыгают!\n"
                         f"Поставь {CURRENCY_EMOJI} на это сообщение в течение минуты — и получишь "
-                        "по одному Геофрукту!\n⏰ Осталось: **60 секунд**"
+                        "Геофрукт!\n⏰ Осталось: **60 секунд**"
                     )
                     reaction_message = await channel.send(announcement)
                     reaction_message_id = reaction_message.id
@@ -132,7 +132,7 @@ class EconomyEventHandler:
                     content=(
                         "🫐 О-о-о, Милки учуял свежий бамп! Геофрукты сами в лапки не прыгают!\n"
                         f"Поставь {CURRENCY_EMOJI} на это сообщение в течение минуты — и получишь "
-                        f"по одному Геофрукту!\n⏰ Осталось: **{remaining} секунд**"
+                        f"Геофрукт!\n⏰ Осталось: **{remaining} секунд**"
                     )
                 )
 
