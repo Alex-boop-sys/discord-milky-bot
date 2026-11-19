@@ -43,14 +43,17 @@ class Env:
         self.zai_api_key = os.getenv("ZAI_API_KEY")
         self.owner_id = os.getenv("OWNER_ID")
         self.co_owner_id = os.getenv("CO_OWNER_ID")
-        # Эти значения необязательны: список содержит только корректные числовые ID.
+        # ID владельцев необязательны, но опечатка не должна незаметно лишать доступа.
         self.owner_ids = []
-        for owner_id in (self.owner_id, self.co_owner_id):
-            if owner_id and owner_id.strip().isdigit():
-                parsed_id = int(owner_id.strip())
-                if parsed_id not in self.owner_ids:
-                    self.owner_ids.append(parsed_id)
-        self._cache = {}
+        for name, owner_id in (("OWNER_ID", self.owner_id), ("CO_OWNER_ID", self.co_owner_id)):
+            value = (owner_id or "").strip()
+            if not value:
+                continue
+            if not value.isdigit():
+                raise ValueError(f"{name} в .env должен быть числовым Discord ID, а там: {value!r}")
+            parsed_id = int(value)
+            if parsed_id not in self.owner_ids:
+                self.owner_ids.append(parsed_id)
 
     def __iter__(self):
         for attr_name in dir(self):
