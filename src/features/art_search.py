@@ -10,7 +10,6 @@ from src.utils.json_parser import dicts
 from src.utils.logger import log
 from src.utils.utils import utils
 
-
 DEFAULT_ART_QUERIES = [
     "expie_(gunsawian)",
     "casualties:_unknown",
@@ -124,9 +123,7 @@ class ArtSearch:
 
                     if not posts:
                         log.warning(f"Ничего не найдено по тегам: {tags_raw}")
-                        await message.reply(
-                            dicts.get("art_tags_not_found")
-                        )
+                        await message.reply(dicts.get("art_tags_not_found"))
                         return
 
                     # Фильтрация
@@ -161,12 +158,12 @@ class ArtSearch:
                             post = random.choice(fallback_posts)
                             image_url = post["file"]["url"]
                             await message.reply(
-                                dicts.get("art_large_image_link").format(image_url=image_url)
+                                dicts.get("art_large_image_link").format(
+                                    image_url=image_url
+                                )
                             )
                         else:
-                            await message.reply(
-                                dicts.get("art_unavailable")
-                            )
+                            await message.reply(dicts.get("art_unavailable"))
                         return
 
                     posts_to_try = valid_posts.copy()
@@ -202,12 +199,16 @@ class ArtSearch:
                     post = random.choice(valid_posts)
                     image_url = post["file"]["url"]
                     await message.reply(
-                        dicts.get("art_download_fallback").format(img_found=dicts.get("img_found"), image_url=image_url)
+                        dicts.get("art_download_fallback").format(
+                            img_found=dicts.get("img_found"), image_url=image_url
+                        )
                     )
 
             except Exception as e:
                 log.exception("Ошибка при поиске изображения")
-                await message.reply(dicts.get("error_response_details").format(details=str(e)[:200]))
+                await message.reply(
+                    dicts.get("error_response_details").format(details=str(e)[:200])
+                )
 
     @staticmethod
     async def fetch_image(session, url, timeout=20, max_bytes=8 * 1024 * 1024):
@@ -277,9 +278,7 @@ class ArtSearch:
                     posts = _normalize_posts(data)
 
                     if not posts:
-                        await interaction.followup.send(
-                            dicts.get("fur_empty_results")
-                        )
+                        await interaction.followup.send(dicts.get("fur_empty_results"))
                         return
 
                     # Фильтрация постов
@@ -317,7 +316,9 @@ class ArtSearch:
                             post = random.choice(fallback_posts)
                             image_url = post["file"]["url"]
                             await interaction.followup.send(
-                                dicts.get("art_large_image_link").format(image_url=image_url)
+                                dicts.get("art_large_image_link").format(
+                                    image_url=image_url
+                                )
                             )
                         else:
                             await interaction.followup.send(
@@ -365,7 +366,9 @@ class ArtSearch:
                     post = random.choice(valid_posts)
                     image_url = post["file"]["url"]
                     await interaction.followup.send(
-                        dicts.get("art_download_fallback").format(img_found=dicts.get("img_found"), image_url=image_url)
+                        dicts.get("art_download_fallback").format(
+                            img_found=dicts.get("img_found"), image_url=image_url
+                        )
                     )
 
         except Exception as e:
