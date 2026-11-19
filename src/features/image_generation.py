@@ -56,12 +56,12 @@ class ImageGeneration:
                             prompt if len(prompt) < 300 else f"{prompt[:300]}..."
                         )
                         await message.reply(
-                            content=f"\\*виляет хвостом\\* Есть! По запросу: `{display_prompt}`",
+                            content=dicts.get("image_generation_success").format(display_prompt=display_prompt),
                             file=file,
                         )
             except Exception as e:
                 log.exception("Ошибка при генерации изображения")
-                await message.reply(f"{dicts.get('error_response')} {str(e)[:200]}")
+                await message.reply(dicts.get("error_response_details").format(details=str(e)[:200]))
 
     @staticmethod
     async def fetch_image(session, url, timeout=20):
@@ -113,7 +113,7 @@ class ImageGeneration:
                 )
                 display_prompt = prompt if len(prompt) < 300 else f"{prompt[:300]}..."
                 await interaction.followup.send(
-                    content=f"\\*виляет хвостом\\* Есть! По запросу: `{display_prompt}`",
+                    content=dicts.get("image_generation_success").format(display_prompt=display_prompt),
                     file=file,
                 )
         except Exception as e:
