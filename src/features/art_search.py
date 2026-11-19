@@ -180,13 +180,7 @@ class ArtSearch:
 
     async def art_interaction(self, interaction, query=None):
         # Базовые теги
-        queries = [
-            "expie_(gunsawian)",
-            "casualties:_unknown",
-            "gunsawian",
-            "milky_(gunsawian)",
-            "dune_(gunsawian)",
-        ]
+        queries = DEFAULT_ART_QUERIES
 
         is_nsfw = query and utils.have_nsfw(query)
 
