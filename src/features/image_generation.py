@@ -5,6 +5,7 @@ import urllib.parse
 import aiohttp
 import discord
 
+from src.utils.image_download import download_image
 from src.utils.json_parser import dicts
 from src.utils.logger import log
 from src.utils.utils import utils
@@ -40,14 +41,12 @@ class ImageGeneration:
 
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        image_url, timeout=aiohttp.ClientTimeout(total=60)
-                    ) as resp:
-                        if resp.status != 200:
-                            await message.reply(dicts.get("error_response"))
-                            return
-
-                        image_data = await resp.read()
+                    image_data, error = await download_image(
+                        session, image_url, utils.get_size_limit(message.guild), timeout=60
+                    )
+                    if error:
+                        await message.reply(dicts.get("error_response"))
+                        return
 
                         file = discord.File(
                             fp=io.BytesIO(image_data), filename="expie_generated.png"
@@ -64,13 +63,9 @@ class ImageGeneration:
                 await message.reply(dicts.get("error_response_details").format(details=str(e)[:200]))
 
     @staticmethod
-    async def fetch_image(session, url, timeout=20):
-        async with session.get(
-            url, timeout=aiohttp.ClientTimeout(total=timeout)
-        ) as resp:
-            if resp.status != 200:
-                return None, resp.status
-            return await resp.read(), None
+    async def fetch_image(session, url, timeout=20, max_bytes=8 * 1024 * 1024):
+        # Оставлено как совместимая обёртка для существующих вызовов.
+        return await download_image(session, url, max_bytes, timeout)
 
     async def generate_interaction(self, interaction, prompt=None):
         is_nsfw = prompt and utils.have_nsfw(prompt)
@@ -102,7 +97,8 @@ class ImageGeneration:
         try:
             async with aiohttp.ClientSession() as session:
                 image_data, error = await self.fetch_image(
-                    session, image_url, timeout=60
+                    session, image_url, timeout=60,
+                    max_bytes=utils.get_size_limit(interaction.guild),
                 )
                 if error:
                     await interaction.followup.send(dicts.get("error_response"))
