@@ -148,12 +148,12 @@ class Defs:
         except aiohttp.ClientError as e:
             log.exception("Ошибка aiohttp.ClientError при генерации картинки")
             await interaction.followup.send(
-                dicts.get("error_response_retry").format(details=f"`{str(e)[:200]}`)
+                dicts.get("error_response_retry").format(details=f"`{str(e)[:200]}`")
             )
         except Exception as e:
             log.exception("Ошибка aiohttp при генерации картинки")
             await interaction.followup.send(
-                dicts.get("error_response_retry").format(details=f"`{str(e)[:200]}`)
+                dicts.get("error_response_retry").format(details=f"`{str(e)[:200]}`")
             )
 
     @staticmethod
