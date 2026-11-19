@@ -5,6 +5,7 @@ import urllib.parse
 import aiohttp
 import discord
 
+from src.utils.image_download import download_image, get_file_extension
 from src.utils.json_parser import dicts
 from src.utils.logger import log
 from src.utils.utils import utils
@@ -133,19 +134,13 @@ class ArtSearch:
                         image_url = post["file"]["url"]
 
                         try:
-                            async with session.get(
-                                image_url, timeout=aiohttp.ClientTimeout(total=20)
-                            ) as img_resp:
-                                if img_resp.status != 200:
-                                    continue
-                                image_data = await img_resp.read()
-
-                            if len(image_data) > size_limit:
+                            image_data, error = await download_image(
+                                session, image_url, size_limit
+                            )
+                            if error:
                                 continue
 
-                            ext = image_url.split(".")[-1].split("?")[0].lower()
-                            if ext not in ("png", "jpg", "jpeg", "gif", "webp"):
-                                ext = "png"
+                            ext = get_file_extension(image_url)
 
                             file = discord.File(
                                 fp=io.BytesIO(image_data), filename=f"expie_art.{ext}"
@@ -172,18 +167,13 @@ class ArtSearch:
                 await message.reply(dicts.get("error_response_details").format(details=str(e)[:200]))
 
     @staticmethod
-    async def fetch_image(session, url, timeout=20):
-        async with session.get(
-            url, timeout=aiohttp.ClientTimeout(total=timeout)
-        ) as resp:
-            if resp.status != 200:
-                return None, resp.status
-            return await resp.read(), None
+    async def fetch_image(session, url, timeout=20, max_bytes=8 * 1024 * 1024):
+        # Оставлено как совместимая обёртка для существующих вызовов.
+        return await download_image(session, url, max_bytes, timeout)
 
     @staticmethod
     def get_file_extension(url):
-        ext = url.split(".")[-1].split("?")[0].lower()
-        return ext if ext in ("png", "jpg", "jpeg", "gif", "webp") else "png"
+        return get_file_extension(url)
 
     async def art_interaction(self, interaction, query=None):
         # Базовые теги
@@ -308,7 +298,7 @@ class ArtSearch:
 
                         try:
                             image_data, error = await self.fetch_image(
-                                session, image_url
+                                session, image_url, max_bytes=size_limit
                             )
                             if error:
                                 log.warning(f"Не удалось скачать {image_url}: {error}")
