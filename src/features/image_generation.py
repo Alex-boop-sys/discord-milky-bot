@@ -75,12 +75,7 @@ class ImageGeneration:
 
         # Проверка наличия промпта
         if not prompt:
-            prompt = (
-                "solo, cute, fluffy, black melanistic fur, anthro, furry, "
-                "wolf-fox hybrid, big eyes, orange sclera, big fluffy tail, "
-                "orange tip tail, three ears, high quality, kawaii style, "
-                "beautiful background"
-            )
+            prompt = DEFAULT_GENERATION_PROMPT
 
         # Проверка канала
         if is_nsfw:
