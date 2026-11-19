@@ -25,7 +25,7 @@ def force_safe_rating(parts):
     return [p for p in parts if "rating:" not in p.lower()] + ["rating:safe"]
 
 
-def _normalize_posts(data):
+def normalize_posts(data):
     """Поддерживает старый и актуальный форматы ответа e621."""
     if isinstance(data, list):
         posts = data
@@ -119,7 +119,7 @@ class ArtSearch:
                         return
 
                     data = await resp.json()
-                    posts = _normalize_posts(data)
+                    posts = normalize_posts(data)
 
                     if not posts:
                         log.warning(f"Ничего не найдено по тегам: {tags_raw}")
@@ -275,7 +275,7 @@ class ArtSearch:
                         return
 
                     data = await resp.json()
-                    posts = _normalize_posts(data)
+                    posts = normalize_posts(data)
 
                     if not posts:
                         await interaction.followup.send(dicts.get("fur_empty_results"))
