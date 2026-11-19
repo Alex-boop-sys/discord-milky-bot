@@ -71,7 +71,7 @@ class ArtSearch:
                     if not resp.ok:
                         log.error(f"e621 ответил {resp.status}")
                         await message.reply(
-                            f"\\*фыркает\\* Сайт ответил ошибкой {resp.status}..."
+                            dicts.get("art_site_error").format(status=resp.status)
                         )
                         return
 
@@ -81,7 +81,7 @@ class ArtSearch:
                     if not posts:
                         log.warning(f"Ничего не найдено по тегам: {tags_raw}")
                         await message.reply(
-                            "\\*морщит нос\\* Такого тут нету, похоже твои теги слишком специфичны, ну или просто ты не умеешь нормально писать"
+                            dicts.get("art_tags_not_found")
                         )
                         return
 
@@ -117,13 +117,11 @@ class ArtSearch:
                             post = random.choice(fallback_posts)
                             image_url = post["file"]["url"]
                             await message.reply(
-                                f"\\*виляет хвостом\\* [О, смотри что нашёл!]({image_url})\n\n"
-                                f"*(Картинка слишком тяжёлая для загрузки прямо в чат, "
-                                f"но ты можешь открыть её по ссылке!)*"
+                                dicts.get("art_large_image_link").format(image_url=image_url)
                             )
                         else:
                             await message.reply(
-                                "\\*наклоняет голову\\* Картинки есть, но они недоступны..."
+                                dicts.get("art_unavailable")
                             )
                         return
 
@@ -166,13 +164,12 @@ class ArtSearch:
                     post = random.choice(valid_posts)
                     image_url = post["file"]["url"]
                     await message.reply(
-                        f"{dicts.get('img_found')} {image_url}\n\n"
-                        f"*(Не получилось загрузить картинку напрямую, но вот ссылка!)*"
+                        dicts.get("art_download_fallback").format(img_found=dicts.get("img_found"), image_url=image_url)
                     )
 
             except Exception as e:
                 log.exception("Ошибка при поиске изображения")
-                await message.reply(f"{dicts.get('error_response')} {str(e)[:200]}")
+                await message.reply(dicts.get("error_response_details").format(details=str(e)[:200]))
 
     @staticmethod
     async def fetch_image(session, url, timeout=20):
@@ -254,7 +251,7 @@ class ArtSearch:
 
                     if not posts:
                         await interaction.followup.send(
-                            "\\*нюхает воздух\\* Ничего не нашёл..."
+                            dicts.get("fur_empty_results")
                         )
                         return
 
@@ -293,13 +290,11 @@ class ArtSearch:
                             post = random.choice(fallback_posts)
                             image_url = post["file"]["url"]
                             await interaction.followup.send(
-                                f"\\*виляет хвостом\\* [О, смотри что нашёл!]({image_url})\n\n"
-                                f"*(Картинка слишком тяжёлая для загрузки прямо в чат, "
-                                f"но ты можешь открыть её по ссылке!)*"
+                                dicts.get("art_large_image_link").format(image_url=image_url)
                             )
                         else:
                             await interaction.followup.send(
-                                "\\*наклоняет голову\\* Картинки есть, но они недоступны..."
+                                dicts.get("art_unavailable")
                             )
                         return
 
@@ -343,14 +338,13 @@ class ArtSearch:
                     post = random.choice(valid_posts)
                     image_url = post["file"]["url"]
                     await interaction.followup.send(
-                        f"{dicts.get('img_found')} {image_url}\n\n"
-                        f"*(Не получилось загрузить картинку напрямую, но вот ссылка!)*"
+                        dicts.get("art_download_fallback").format(img_found=dicts.get("img_found"), image_url=image_url)
                     )
 
         except Exception as e:
             log.exception("Ошибка при поиске изображения")
             await interaction.followup.send(
-                f" {dicts.get('error_response')} {str(e)[:200]}"
+                dicts.get("error_response_details").format(details=str(e)[:200])
             )
 
 
