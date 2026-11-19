@@ -11,6 +11,15 @@ from src.utils.logger import log
 from src.utils.utils import utils
 
 
+DEFAULT_ART_QUERIES = [
+    "expie_(gunsawian)",
+    "casualties:_unknown",
+    "gunsawian",
+    "milky_(gunsawian)",
+    "dune_(gunsawian)",
+]
+
+
 def force_safe_rating(parts):
     """Для обычных (не NSFW) каналов: вырезает любые rating:* из тегов пользователя
     и ставит rating:safe. Рейтинг определяет бот, а не пользователь."""
@@ -21,13 +30,7 @@ class ArtSearch:
     @staticmethod
     async def art(message, query=None):
         """Обработчик для сообщений (без interaction)"""
-        queries = [
-            "expie_(gunsawian)",
-            "casualties:_unknown",
-            "gunsawian",
-            "milky_(gunsawian)",
-            "dune_(gunsawian)",
-        ]
+        queries = DEFAULT_ART_QUERIES
 
         is_nsfw = query and utils.have_nsfw(query)
 
