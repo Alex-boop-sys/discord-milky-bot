@@ -48,16 +48,16 @@ class ImageGeneration:
                         await message.reply(dicts.get("error_response"))
                         return
 
-                        file = discord.File(
-                            fp=io.BytesIO(image_data), filename="expie_generated.png"
-                        )
-                        display_prompt = (
-                            prompt if len(prompt) < 300 else f"{prompt[:300]}..."
-                        )
-                        await message.reply(
-                            content=dicts.get("image_generation_success").format(display_prompt=display_prompt),
-                            file=file,
-                        )
+                    file = discord.File(
+                        fp=io.BytesIO(image_data), filename="expie_generated.png"
+                    )
+                    display_prompt = (
+                        prompt if len(prompt) < 300 else f"{prompt[:300]}..."
+                    )
+                    await message.reply(
+                        content=dicts.get("image_generation_success").format(display_prompt=display_prompt),
+                        file=file,
+                    )
             except Exception as e:
                 log.exception("Ошибка при генерации изображения")
                 await message.reply(dicts.get("error_response_details").format(details=str(e)[:200]))
