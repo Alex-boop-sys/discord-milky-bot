@@ -1,6 +1,6 @@
 """Проверки общей загрузки изображений и ограничения размера."""
 
-from types import SimpleNamespace
+import asyncio
 
 import pytest
 
@@ -39,42 +39,38 @@ class FakeSession:
         return self.response
 
 
-@pytest.mark.asyncio
-async def test_download_image_reads_chunks_within_limit():
+def test_download_image_reads_chunks_within_limit():
     session = FakeSession(FakeResponse(chunks=[b"abc", b"def"]))
 
-    data, error = await download_image(session, "https://example.test/image.png", 6)
+    data, error = asyncio.run(download_image(session, "https://example.test/image.png", 6))
 
     assert data == b"abcdef"
     assert error is None
 
 
-@pytest.mark.asyncio
-async def test_download_image_stops_when_stream_exceeds_limit():
+def test_download_image_stops_when_stream_exceeds_limit():
     session = FakeSession(FakeResponse(chunks=[b"abc", b"def"]))
 
-    data, error = await download_image(session, "https://example.test/image.png", 5)
+    data, error = asyncio.run(download_image(session, "https://example.test/image.png", 5))
 
     assert data is None
     assert error == "too_large"
 
 
-@pytest.mark.asyncio
-async def test_download_image_rejects_large_content_length_without_reading():
+def test_download_image_rejects_large_content_length_without_reading():
     response = FakeResponse(chunks=[b"should not be read"], headers={"Content-Length": "100"})
     session = FakeSession(response)
 
-    data, error = await download_image(session, "https://example.test/image.png", 10)
+    data, error = asyncio.run(download_image(session, "https://example.test/image.png", 10))
 
     assert data is None
     assert error == "too_large"
 
 
-@pytest.mark.asyncio
-async def test_download_image_returns_http_status():
+def test_download_image_returns_http_status():
     session = FakeSession(FakeResponse(status=404))
 
-    data, error = await download_image(session, "https://example.test/missing.png", 10)
+    data, error = asyncio.run(download_image(session, "https://example.test/missing.png", 10))
 
     assert data is None
     assert error == 404
