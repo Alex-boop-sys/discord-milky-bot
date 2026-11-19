@@ -11,11 +11,11 @@ from src.utils.logger import log
 from src.utils.utils import utils
 
 DEFAULT_ART_QUERIES = [
-    "expie_(gunsawian)",
-    "casualties:_unknown",
-    "gunsawian",
-    "milky_(gunsawian)",
-    "dune_(gunsawian)",
+    "expie_(gunsawian) -comic",
+    "casualties:_unknown -comic",
+    "gunsawian -comic",
+    "milky_(gunsawian) -comic",
+    "dune_(gunsawian) -comic",
 ]
 
 
