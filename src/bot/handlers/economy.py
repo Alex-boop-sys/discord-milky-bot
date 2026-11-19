@@ -7,6 +7,7 @@ import discord
 
 from config import FEATURES
 from src.features.economy import CURRENCY_EMOJI, economy
+from src.utils.json_parser import dicts
 from src.utils.logger import log, place_name, set_place
 
 
@@ -66,11 +67,7 @@ class EconomyEventHandler:
                     channel = bot.get_channel(event["channel_id"])
                     if channel is None:
                         channel = await bot.fetch_channel(event["channel_id"])
-                    announcement = (
-                        "🫐 О-о-о, тут целое дерево! Геофрукты сами в лапки не прыгают!\n"
-                        f"Поставь {CURRENCY_EMOJI} на это сообщение в течение минуты — и получишь "
-                        "Геофрукт!\n⏰ Осталось: **60 секунд**"
-                    )
+                    announcement = dicts.get("reaction_event_announcement").format(emoji=CURRENCY_EMOJI)
                     reaction_message = await channel.send(announcement)
                     reaction_message_id = reaction_message.id
                     ends_at = economy.activate_reaction_event(
@@ -129,11 +126,7 @@ class EconomyEventHandler:
                 if time.time() >= ends_at:
                     break
                 await reaction_message.edit(
-                    content=(
-                        "🫐 О-о-о, Милки учуял свежий бамп! Геофрукты сами в лапки не прыгают!\n"
-                        f"Поставь {CURRENCY_EMOJI} на это сообщение в течение минуты — и получишь "
-                        f"Геофрукт!\n⏰ Осталось: **{remaining} секунд**"
-                    )
+                    content=dicts.get("reaction_event_countdown").format(emoji=CURRENCY_EMOJI, remaining=remaining)
                 )
 
             delay = ends_at - time.time()
@@ -145,10 +138,7 @@ class EconomyEventHandler:
                 return
 
             if not user_ids:
-                final_text = (
-                    "🫐 Время вышло! Никто не успел поймать Геофрукт... "
-                    "Ну что ж, Милки забирает его себе. ХРУМ!"
-                )
+                final_text = dicts.get("reaction_event_no_winners")
             else:
                 mentions = []
                 guild = bot.get_guild(guild_id)
@@ -165,10 +155,7 @@ class EconomyEventHandler:
                             member = None
                     mentions.append(member.mention if member else f"<@{user_id}>")
                 winners = ", ".join(mentions)
-                final_text = (
-                    f"🫐 Время вышло, сбор завершён — Геофрукты нашли хозяев: {winners}! "
-                    "Каждому по одному сочному Геофрукту!"
-                )
+                final_text = dicts.get("reaction_event_winners").format(winners=winners)
 
             await reaction_message.edit(content=final_text)
             log.info(

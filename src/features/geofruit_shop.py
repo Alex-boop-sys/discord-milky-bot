@@ -90,7 +90,7 @@ class GeoFruitPersonaModal(discord.ui.Modal):
         lock = _shop_user_locks.setdefault(self.owner_id, asyncio.Lock())
         if lock.locked():
             await interaction.response.send_message(
-                "Милки уже обрабатывает твою покупку, секундочку!",
+                dicts.get("shop_busy"),
                 ephemeral=True,
             )
             return
@@ -237,7 +237,7 @@ class GeoFruitShopView(discord.ui.View):
         lock = _shop_user_locks.setdefault(interaction.user.id, asyncio.Lock())
         if lock.locked():
             await interaction.response.send_message(
-                "Милки уже обрабатывает твою покупку, секундочку!",
+                dicts.get("shop_busy"),
                 ephemeral=True,
             )
             return
@@ -306,8 +306,7 @@ class GeoFruitShopView(discord.ui.View):
         )
 
         fallback = (
-            f"*Милки бережно принимает Геофрукт лапками, с удовольствием хрумкает "
-            f"им и довольно улыбается.* Мр-р, спасибо тебе, {user_name}! 🫐💕"
+            dicts.get("shop_treat_fallback").format(user_name=user_name)
         )
 
         try:

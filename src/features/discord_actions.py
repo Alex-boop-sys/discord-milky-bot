@@ -105,8 +105,7 @@ class Defs:
                             f"При поиске изображения сайт ответил кодом {resp.status}"
                         )
                         await interaction.followup.send(
-                            f"{dicts.get('error_response')} {resp.status}\n"
-                            "Может стоит попробовать позже, или проверить теги?"
+                            dicts.get("error_response_retry").format(details=resp.status)
                         )
                         return
 
@@ -115,8 +114,7 @@ class Defs:
 
                     if not images:
                         await interaction.followup.send(
-                            f"\\*нюхает воздух\\* Ничего не нашёл по тегам `{query}`... "
-                            "Может стоит попробовать другие слова, или проверить их правильность?"
+                            dicts.get("fur_no_results").format(query=query)
                         )
                         return
 
@@ -127,7 +125,7 @@ class Defs:
 
                     if not img_url:
                         await interaction.followup.send(
-                            "\\*наклоняет голову\\* Странно, я нашёл пост, но ссылка пустая..."
+                            dicts.get("fur_empty_url")
                         )
                         return
 
@@ -135,7 +133,7 @@ class Defs:
                     if error:
                         log.warning(f"Ошибка загрузки картинки: {error}")
                         await interaction.followup.send(
-                            f"{dicts.get('error_response')} {error}"
+                            dicts.get("error_response_details").format(details=error)
                         )
                         return
 
@@ -150,19 +148,19 @@ class Defs:
         except aiohttp.ClientError as e:
             log.exception("Ошибка aiohttp.ClientError при генерации картинки")
             await interaction.followup.send(
-                f"{dicts.get('error_response')} `{str(e)[:200]}`\nМожет попробуешь позже?"
+                dicts.get("error_response_retry").format(details=f"`{str(e)[:200]}`)
             )
         except Exception as e:
             log.exception("Ошибка aiohttp при генерации картинки")
             await interaction.followup.send(
-                f"{dicts.get('error_response')} `{str(e)[:200]}`\nМожет попробуешь позже?"
+                dicts.get("error_response_retry").format(details=f"`{str(e)[:200]}`)
             )
 
     @staticmethod
     async def pair(interaction):
         if not interaction.guild:
             await interaction.response.send_message(
-                "\\*прижимает уши\\* Это работает только на сервере!"
+                dicts.get("art_server_only")
             )
             return
 
@@ -176,7 +174,7 @@ class Defs:
 
         if len(online_users) < 2:
             await interaction.response.send_message(
-                "\\*нюхает воздух\\* Сейчас здесь слишком пусто для шипа..."
+                dicts.get("pair_not_enough_users")
             )
             return
 
@@ -214,7 +212,7 @@ class Defs:
             ]
             if not users:
                 await interaction.response.send_message(
-                    "\\*нюхает\\* Я не чувствую никого поблизости!"
+                    dicts.get("hug_no_nearby_users")
                 )
                 return
             member = random.choice(users)

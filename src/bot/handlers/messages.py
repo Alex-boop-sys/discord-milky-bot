@@ -124,8 +124,7 @@ class MessageHandlers:
             )
             mention = member.mention if member else f"<@{rewarded_user_id}>"
             await message.channel.send(
-                f"🫐 Хрум! {mention} получает Геофрукт за успешный бамп! "
-                "(Чтобы тоже получить Геофрукт, используй `/bump`.)"
+                dicts.get("bump_reward_announcement").format(mention=mention)
             )
 
         # мини-ивент
