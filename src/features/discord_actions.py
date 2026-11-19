@@ -11,6 +11,7 @@ from src.features.art_search import art_search
 from src.features.image_generation import image_generation
 from src.services.ai import api
 from src.utils.cooldown import cooldown
+from src.utils.image_download import download_image, get_file_extension
 from src.utils.json_parser import dicts
 from src.utils.logger import log
 from src.utils.utils import utils
@@ -18,19 +19,13 @@ from src.utils.utils import utils
 
 class Defs:
     @staticmethod
-    async def fetch_image(session, url, timeout=20):
-        async with session.get(
-            url, timeout=aiohttp.ClientTimeout(total=timeout)
-        ) as resp:
-            if resp.status != 200:
-                return None, resp.status
-            data = await resp.read()
-            return data, None
+    async def fetch_image(session, url, timeout=20, max_bytes=8 * 1024 * 1024):
+        # Оставлено как совместимая обёртка для существующих вызовов.
+        return await download_image(session, url, max_bytes, timeout)
 
     @staticmethod
     def get_file_extension(url):
-        ext = url.split(".")[-1].split("?")[0].lower()
-        return ext if ext in ("png", "jpg", "jpeg", "gif", "webp") else "png"
+        return get_file_extension(url)
 
     @staticmethod
     async def cooldown_ok(interaction):
@@ -129,7 +124,9 @@ class Defs:
                         )
                         return
 
-                    image_data, error = await self.fetch_image(session, img_url)
+                    image_data, error = await self.fetch_image(
+                        session, img_url, max_bytes=utils.get_size_limit(interaction.guild)
+                    )
                     if error:
                         log.warning(f"Ошибка загрузки картинки: {error}")
                         await interaction.followup.send(
