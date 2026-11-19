@@ -26,6 +26,46 @@ def force_safe_rating(parts):
     return [p for p in parts if "rating:" not in p.lower()] + ["rating:safe"]
 
 
+def _normalize_posts(data):
+    """Поддерживает старый и актуальный форматы ответа e621."""
+    if isinstance(data, list):
+        posts = data
+    elif isinstance(data, dict):
+        posts = data["posts"] if isinstance(data.get("posts"), list) else []
+    else:
+        return []
+
+    normalized = []
+    for post in posts:
+        if not isinstance(post, dict):
+            continue
+        file_data = post.get("file")
+        if isinstance(file_data, dict):
+            normalized.append(post)
+            continue
+
+        # Новый формат API: files.original + files.meta.
+        files = post.get("files")
+        if not isinstance(files, dict):
+            continue
+        original = files.get("original")
+        meta = files.get("meta")
+        if not isinstance(original, dict):
+            continue
+        if not isinstance(meta, dict):
+            meta = {}
+
+        normalized_post = dict(post)
+        normalized_post["file"] = {
+            "url": original.get("url"),
+            "size": meta.get("size", original.get("size", 0)),
+            "ext": meta.get("ext"),
+        }
+        normalized.append(normalized_post)
+
+    return normalized
+
+
 class ArtSearch:
     @staticmethod
     async def art(message, query=None):
@@ -80,7 +120,7 @@ class ArtSearch:
                         return
 
                     data = await resp.json()
-                    posts = data.get("posts", [])
+                    posts = _normalize_posts(data)
 
                     if not posts:
                         log.warning(f"Ничего не найдено по тегам: {tags_raw}")
@@ -234,7 +274,7 @@ class ArtSearch:
                         return
 
                     data = await resp.json()
-                    posts = data.get("posts", [])
+                    posts = _normalize_posts(data)
 
                     if not posts:
                         await interaction.followup.send(
