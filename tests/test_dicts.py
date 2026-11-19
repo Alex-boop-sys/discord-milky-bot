@@ -35,3 +35,19 @@ def test_random_reply_lists_are_not_empty():
 def test_cooldown_notice_has_seconds_placeholder():
     assert "{seconds}" in DICTS["cooldown_notice"]
     assert "3" in DICTS["cooldown_notice"].format(seconds=3)
+
+
+def test_character_phrase_templates_have_expected_placeholders():
+    assert "{mention}" in DICTS["bump_reward_announcement"]
+    assert "{user_name}" in DICTS["shop_treat_fallback"]
+    assert "{image_url}" in DICTS["art_large_image_link"]
+    assert "{display_prompt}" in DICTS["image_generation_success"]
+    assert "{remaining}" in DICTS["reaction_event_countdown"]
+
+
+def test_morning_greeting_prompt_collections_are_complete():
+    assert len(DICTS["morning_moods"]) == 7
+    assert len(DICTS["morning_scenes"]) == 9
+    assert len(DICTS["morning_styles"]) == 6
+    assert set(DICTS["morning_weekday_notes"]) == {str(day) for day in range(7)}
+    assert all(len(notes) == 2 for notes in DICTS["morning_weekday_notes"].values())
