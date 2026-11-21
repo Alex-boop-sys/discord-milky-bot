@@ -16,18 +16,18 @@ VERSION = "0.7.1 [INDEV]"
 
 # Переключатели функциональности. Изменения применяются после перезапуска бота.
 FEATURES = {
-    "economy": True,              # Баланс, магазин, топ и все награды за бампы.
-    "morning_greetings": True,    # Ежедневные автоматические приветствия.
-    "admin_commands": True,       # Команды владельцев через root#.
-    "sniff": False,                # Временная диагностика сообщений ботов (root# sniff).
+    "economy": True,  # Баланс, магазин, топ и все награды за бампы.
+    "morning_greetings": True,  # Ежедневные автоматические приветствия.
+    "admin_commands": True,  # Команды владельцев через root#.
+    "sniff": False,  # Временная диагностика сообщений ботов (root# sniff).
     "slash_commands": {
-        "art": True,              # /арт и текстовые триггеры поиска арта.
-        "gen": False,             # /ген и текстовые триггеры генерации.
-        "fur": True,              # /фурь.
-        "ship": False,            # /шип.
-        "ask": False,             # /спросить.
-        "hug": False,             # /обнять.
-        "stats": True,            # /стат.
+        "art": True,  # /арт и текстовые триггеры поиска арта.
+        "gen": False,  # /ген и текстовые триггеры генерации.
+        "fur": True,  # /фурь.
+        "ship": False,  # /шип.
+        "ask": False,  # /спросить.
+        "hug": False,  # /обнять.
+        "stats": True,  # /стат.
     },
 }
 
@@ -45,12 +45,17 @@ class Env:
         self.co_owner_id = os.getenv("CO_OWNER_ID")
         # ID владельцев необязательны, но опечатка не должна незаметно лишать доступа.
         self.owner_ids = []
-        for name, owner_id in (("OWNER_ID", self.owner_id), ("CO_OWNER_ID", self.co_owner_id)):
+        for name, owner_id in (
+            ("OWNER_ID", self.owner_id),
+            ("CO_OWNER_ID", self.co_owner_id),
+        ):
             value = (owner_id or "").strip()
             if not value:
                 continue
             if not value.isdigit():
-                raise ValueError(f"{name} в .env должен быть числовым Discord ID, а там: {value!r}")
+                raise ValueError(
+                    f"{name} в .env должен быть числовым Discord ID, а там: {value!r}"
+                )
             parsed_id = int(value)
             if parsed_id not in self.owner_ids:
                 self.owner_ids.append(parsed_id)
@@ -147,6 +152,7 @@ class Var:
             ("openrouter", "meta-llama/llama-3.3-70b-instruct"),
             ("openrouter", "openrouter/free"),
             ("groq", "llama-3.3-70b-versatile"),
+            ("groq", "llama-3.1-8b-instant"),
         ]
 
         # НАСТРОЙКИ INTENTS
