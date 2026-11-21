@@ -151,8 +151,9 @@ class Var:
             ("zai", "glm-4.5-flash"),
             ("openrouter", "meta-llama/llama-3.3-70b-instruct"),
             ("openrouter", "openrouter/free"),
-            ("groq", "llama-3.3-70b-versatile"),
-            ("groq", "llama-3.1-8b-instant"),
+            ("groq", "openai/gpt-oss-120b"),
+            ("groq", "openai/gpt-oss-20b"),
+            ("groq", "qwen/qwen3.8-27b"),
         ]
 
         # НАСТРОЙКИ INTENTS
