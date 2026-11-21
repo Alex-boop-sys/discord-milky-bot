@@ -133,7 +133,7 @@ class Api:
 
     # GROQ
     @staticmethod
-    async def call_groq(
+    async def _call_groq(
         session: aiohttp.ClientSession, model: str, messages: list[dict]
     ) -> str | None:
         headers = {"Authorization": f"Bearer {env.groq_api_key}"}
