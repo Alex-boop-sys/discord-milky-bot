@@ -11,6 +11,10 @@ from src.services.history import history
 from src.utils.json_parser import dicts
 from src.utils.logger import log
 
+glog = log.getChild("GROQ")
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+
 # Знаки, которыми обычно заканчивается законченная фраза.
 # Символы " и ' могут быть и открывающими, но чаще закрывают реплику.
 END_CHARS = set(")]}!.?;:*~…”»\"'—")
@@ -129,38 +133,40 @@ class Api:
 
     # GROQ
     @staticmethod
-    async def _call_groq(model, messages):
-        async with aiohttp.ClientSession() as session:
-            log.getChild("GROQ").info(f"Попытка вызвать GROQ: {model}")
-            headers = {
-                "Authorization": f"Bearer {env.groq_api_key}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": model,
-                "messages": messages,
-                "temperature": var.temperature,
-                "max_tokens": var.max_tokens,
-                "top_p": var.top_p,
-            }
-            try:
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=var.groq_timeout),
-                ) as response:
-                    if response.status == 429:
-                        log.warning(f"{model}: 429 — лимит")
-                        return None
-                    if response.status != 200:
-                        log.warning(f"{model}: ошибка {response.status}")
-                        return None
-                    data = await response.json()
-                    return data["choices"][0]["message"]["content"]
-            except Exception as e:
-                log.getChild("GROQ").warning(f"Исключение: {e}")
-                return None
+    async def call_groq(
+        session: aiohttp.ClientSession, model: str, messages: list[dict]
+    ) -> str | None:
+        headers = {"Authorization": f"Bearer {env.groq_api_key}"}
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": var.temperature,
+            "max_tokens": var.max_tokens,
+            "top_p": var.top_p,
+        }
+        glog.info(f"Вызов {model}")
+        try:
+            async with session.post(
+                GROQ_URL,
+                headers=headers,
+                json=payload,  # Content-Type выставится сам
+                timeout=aiohttp.ClientTimeout(total=var.groq_timeout),
+            ) as resp:
+                if resp.status == 429:
+                    retry = resp.headers.get("retry-after")
+                    glog.warning(f"{model}: 429, retry-after={retry}")
+                    return None
+                if resp.status != 200:
+                    body = (await resp.text())[:300]
+                    glog.warning(f"{model}: {resp.status} {body}")
+                    return None
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"]
+        except asyncio.TimeoutError:
+            glog.warning(f"{model}: таймаут")
+        except (aiohttp.ClientError, KeyError, IndexError) as e:
+            glog.warning(f"{model}: {type(e).__name__}: {e}")
+        return None
 
     # OPENROUTER
     @staticmethod
