@@ -100,7 +100,9 @@ class Defs:
                             f"При поиске изображения сайт ответил кодом {resp.status}"
                         )
                         await interaction.followup.send(
-                            dicts.get("error_response_retry").format(details=resp.status)
+                            dicts.get("error_response_retry").format(
+                                details=resp.status
+                            )
                         )
                         return
 
@@ -119,13 +121,13 @@ class Defs:
                     )
 
                     if not img_url:
-                        await interaction.followup.send(
-                            dicts.get("fur_empty_url")
-                        )
+                        await interaction.followup.send(dicts.get("fur_empty_url"))
                         return
 
                     image_data, error = await self.fetch_image(
-                        session, img_url, max_bytes=utils.get_size_limit(interaction.guild)
+                        session,
+                        img_url,
+                        max_bytes=utils.get_size_limit(interaction.guild),
                     )
                     if error:
                         log.warning(f"Ошибка загрузки картинки: {error}")
@@ -156,9 +158,7 @@ class Defs:
     @staticmethod
     async def pair(interaction):
         if not interaction.guild:
-            await interaction.response.send_message(
-                dicts.get("art_server_only")
-            )
+            await interaction.response.send_message(dicts.get("art_server_only"))
             return
 
         online_users = [
@@ -170,9 +170,7 @@ class Defs:
         ]
 
         if len(online_users) < 2:
-            await interaction.response.send_message(
-                dicts.get("pair_not_enough_users")
-            )
+            await interaction.response.send_message(dicts.get("pair_not_enough_users"))
             return
 
         u1, u2 = random.sample(online_users, 2)
@@ -273,7 +271,7 @@ class Defs:
             count = user_data["count"]
 
             # Статистика общая для всех серверов, поэтому человека может не быть
-            # на этом сервере: тогда вместо имени пишем «Пользователь скрыт».
+            # на этом сервере: тогда вместо имени пишем «Не на сервере».
             username = utils.member_display_name(interaction.guild, user_id)
 
             # Медали

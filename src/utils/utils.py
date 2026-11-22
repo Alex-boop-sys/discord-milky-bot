@@ -6,7 +6,7 @@ from config import env, var
 from src.utils.logger import log
 
 # Подпись для участников, которых нет на текущем сервере (например, в общей статистике).
-HIDDEN_USER_NAME = "Пользователь скрыт"
+HIDDEN_USER_NAME = "Не на сервере"
 
 
 class Utils:

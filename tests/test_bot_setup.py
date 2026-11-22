@@ -1,4 +1,5 @@
 """Проверки сборки бота: без подключения к Discord."""
+
 import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -25,7 +26,7 @@ def test_bot_never_pings_everyone_or_roles():
 def test_setup_hook_is_registered():
     original = bot.setup_hook
     bot_handlers.register_handlers()
-    assert bot.setup_hook is not original                 # наш setup_hook заменил стандартный
+    assert bot.setup_hook is not original  # наш setup_hook заменил стандартный
     assert asyncio.iscoroutinefunction(bot.setup_hook)
 
 
@@ -85,10 +86,13 @@ def test_trigger_passes_nsfw_text_to_art_search(fake_features):
 
 # ---------- несколько серверов -------------------------------------------------
 
+
 def test_guild_join_and_message_edit_handlers_are_registered():
     bot_handlers.register_handlers()
     assert asyncio.iscoroutinefunction(bot.on_guild_join)
-    assert asyncio.iscoroutinefunction(bot.on_raw_message_edit)     # правки сообщений ботов нужны экономике
+    assert asyncio.iscoroutinefunction(
+        bot.on_raw_message_edit
+    )  # правки сообщений ботов нужны экономике
 
 
 def test_slash_commands_are_checked_by_milky_tree(monkeypatch):
@@ -97,7 +101,9 @@ def test_slash_commands_are_checked_by_milky_tree(monkeypatch):
 
     def interaction(guild_id):
         return SimpleNamespace(
-            guild=None, channel=None, guild_id=guild_id,
+            guild=None,
+            channel=None,
+            guild_id=guild_id,
             response=SimpleNamespace(send_message=AsyncMock()),
         )
 
@@ -105,17 +111,22 @@ def test_slash_commands_are_checked_by_milky_tree(monkeypatch):
     assert asyncio.run(bot.tree.interaction_check(allowed)) is True
     allowed.response.send_message.assert_not_called()
     assert asyncio.run(bot.tree.interaction_check(stranger)) is False
-    stranger.response.send_message.assert_awaited_once()           # пишем «Это пока не работает тут»
+    stranger.response.send_message.assert_awaited_once()  # пишем «Это пока не работает тут»
 
 
 def test_member_display_name_hides_foreign_users():
-    guild = SimpleNamespace(get_member=lambda uid: SimpleNamespace(display_name="Алекс") if uid == 1 else None)
+    guild = SimpleNamespace(
+        get_member=lambda uid: (
+            SimpleNamespace(display_name="Алекс") if uid == 1 else None
+        )
+    )
     assert utils.member_display_name(guild, 1) == "Алекс"
-    assert utils.member_display_name(guild, 2) == HIDDEN_USER_NAME == "Пользователь скрыт"
+    assert utils.member_display_name(guild, 2) == HIDDEN_USER_NAME == "Не на сервере"
     assert utils.member_display_name(None, 1) == HIDDEN_USER_NAME
 
 
 # ---------- таймер ----------------------------------------------------------------
+
 
 def test_message_cooldown_warns_once_and_blocks(monkeypatch):
     monkeypatch.setattr(var, "user_cooldown_seconds", 5)
@@ -125,10 +136,10 @@ def test_message_cooldown_warns_once_and_blocks(monkeypatch):
     assert asyncio.run(MessageHandlers._cooldown_ok(message)) is True
     message.reply.assert_not_called()
     assert asyncio.run(MessageHandlers._cooldown_ok(message)) is False
-    assert message.reply.await_count == 1                          # предупреждение отправлено
-    assert message.reply.await_args.kwargs["delete_after"] == 5    # и стирается само
+    assert message.reply.await_count == 1  # предупреждение отправлено
+    assert message.reply.await_args.kwargs["delete_after"] == 5  # и стирается само
     assert asyncio.run(MessageHandlers._cooldown_ok(message)) is False
-    assert message.reply.await_count == 1                          # повторно не спамим
+    assert message.reply.await_count == 1  # повторно не спамим
 
 
 def test_slash_cooldown_answers_privately(monkeypatch):
@@ -146,11 +157,15 @@ def test_slash_cooldown_answers_privately(monkeypatch):
 
 # ---------- обращения к боту: сервер и таймер -----------------------------------------
 
+
 def test_messages_from_unknown_servers_are_ignored(monkeypatch):
     monkeypatch.setattr(var, "allowed_guild_ids", [1])
     check = AsyncMock()
     monkeypatch.setattr(MessageHandlers, "check_ping", check)
-    message = SimpleNamespace(guild=SimpleNamespace(id=99, name="Чужой"), channel=SimpleNamespace(name="общий"))
+    message = SimpleNamespace(
+        guild=SimpleNamespace(id=99, name="Чужой"),
+        channel=SimpleNamespace(name="общий"),
+    )
     asyncio.run(MessageHandlers().on_msg(message))
     check.assert_not_called()
 
@@ -158,9 +173,9 @@ def test_messages_from_unknown_servers_are_ignored(monkeypatch):
 @pytest.mark.parametrize(
     "content, reply_to",
     [
-        ("Милки, привет", None),                           # обращение по имени
-        (f"<@{BOT.id}> привет", None),                     # через @
-        ("привет", "bot"),                                 # ответом на сообщение бота
+        ("Милки, привет", None),  # обращение по имени
+        (f"<@{BOT.id}> привет", None),  # через @
+        ("привет", "bot"),  # ответом на сообщение бота
     ],
 )
 def test_every_way_to_chat_is_limited_by_cooldown(monkeypatch, content, reply_to):
@@ -172,12 +187,12 @@ def test_every_way_to_chat_is_limited_by_cooldown(monkeypatch, content, reply_to
 
     message = make_message(content, reply_to=reply_to)
     handlers = MessageHandlers()
-    for _ in range(3):                                     # три обращения подряд
+    for _ in range(3):  # три обращения подряд
         asyncio.run(handlers.check_ping(message, BOT))
 
-    assert ask.await_count == 1                            # ИИ позвали только раз
+    assert ask.await_count == 1  # ИИ позвали только раз
     notices = [c for c in message.reply.await_args_list if "delete_after" in c.kwargs]
-    assert len(notices) == 1                               # и предупредили тоже один раз
+    assert len(notices) == 1  # и предупредили тоже один раз
 
 
 @pytest.mark.parametrize("command", ["art", "generate", "fur"])
@@ -187,18 +202,20 @@ def test_heavy_slash_commands_respect_cooldown(monkeypatch, command):
     used_cooldown = Cooldown()
     monkeypatch.setattr(discord_actions, "cooldown", used_cooldown)
     monkeypatch.setattr(discord_actions.art_search, "art_interaction", AsyncMock())
-    monkeypatch.setattr(discord_actions.image_generation, "generate_interaction", AsyncMock())
+    monkeypatch.setattr(
+        discord_actions.image_generation, "generate_interaction", AsyncMock()
+    )
     interaction = SimpleNamespace(
         user=SimpleNamespace(id=5),
         response=SimpleNamespace(send_message=AsyncMock(), defer=AsyncMock()),
     )
 
-    used_cooldown.check(5)                                 # человек только что уже обращался к боту
+    used_cooldown.check(5)  # человек только что уже обращался к боту
     asyncio.run(getattr(Defs(), command)(interaction, "wolf"))
 
     interaction.response.send_message.assert_awaited_once()
     assert interaction.response.send_message.await_args.kwargs["ephemeral"] is True
-    interaction.response.defer.assert_not_called()         # тяжёлая работа не начиналась
+    interaction.response.defer.assert_not_called()  # тяжёлая работа не начиналась
     discord_actions.art_search.art_interaction.assert_not_called()
     discord_actions.image_generation.generate_interaction.assert_not_called()
 
@@ -212,5 +229,7 @@ def test_startup_leaves_unknown_servers(monkeypatch):
         return SimpleNamespace(id=guild_id, name=f"С{guild_id}", leave=AsyncMock())
 
     ours, stranger = guild(1), guild(99)
-    fake_bot = SimpleNamespace(user="Милки", guilds=[ours, stranger], change_presence=AsyncMock())
+    fake_bot = SimpleNamespace(
+        user="Милки", guilds=[ours, stranger], change_presence=AsyncMock()
+    )
     asyncio.run(MessageHandlers().on_ready(fake_bot))
