@@ -39,6 +39,7 @@ class Api:
         # История вынесена в отдельный сервис; публичные методы ниже оставлены
         # для совместимости с командами и статистикой бота.
         self.history = history
+        self._groq_session: aiohttp.ClientSession | None = None
 
     def trim_text(self, result: str) -> str:
         if not result:
@@ -131,11 +132,18 @@ class Api:
                 log.getChild("CLOUDFLARE").warning(f"Исключение: {e}")
                 return None
 
+    def _get_groq_session(self) -> aiohttp.ClientSession:
+        if self._groq_session is None or self._groq_session.closed:
+            self._groq_session = aiohttp.ClientSession()
+        return self._groq_session
+
+    async def close(self):
+        if self._groq_session and not self._groq_session.closed:
+            await self._groq_session.close()
+
     # GROQ
-    @staticmethod
-    async def _call_groq(
-        session: aiohttp.ClientSession, model: str, messages: list[dict]
-    ) -> str | None:
+    async def _call_groq(self, model: str, messages: list[dict]) -> str | None:
+        session = self._get_groq_session()
         headers = {"Authorization": f"Bearer {env.groq_api_key}"}
         payload = {
             "model": model,
