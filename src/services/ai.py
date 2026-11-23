@@ -364,28 +364,31 @@ class Api:
     # ЗАПРОС ИИ
     async def ask_ai(self, user_id, user_name, message):
         lorebook_context = None
-        try:
-            if lorebook is None or not var.lorebook_enabled:
-                raise RuntimeError("Lorebook отключён или недоступен")
+        if lorebook is not None and var.lorebook_enabled:
+            try:
+                depth = max(0, var.lorebook_scan_depth)
+                recent = self.history.get_recent_messages(user_id, depth + 1)
+                previous_assistant = None
 
-            depth = max(0, var.lorebook_scan_depth)
-            recent = self.history.get_recent_messages(user_id, depth + 1)
-            previous_assistant = None
+                # Последняя assistant-запись — предыдущий ответ Милки. Её используем
+                # как источник триггеров, но не включаем в окно проверки повторов.
+                if recent and recent[-1]["role"] == "assistant":
+                    previous_assistant = recent[-1]["content"]
+                    earlier_messages = recent[:-1][-depth:] if depth else []
+                else:
+                    # После неудачного запроса последняя запись может быть user.
+                    earlier_messages = recent[-depth:] if depth else []
 
-            # Последняя assistant-запись — предыдущий ответ Милки. Её используем
-            # как источник триггеров, но не включаем в окно проверки повторов.
-            if recent and recent[-1]["role"] == "assistant":
-                previous_assistant = recent[-1]["content"]
-                earlier_messages = recent[:-1][-depth:] if depth else []
-            else:
-                # После неудачного запроса последняя запись может быть user.
-                earlier_messages = recent[-depth:] if depth else []
+                lorebook_context = lorebook.build_context(
+                    current_message=message,
+                    previous_assistant=previous_assistant,
+                    earlier_messages=earlier_messages,
+                )
+            except Exception as e:
+                log.getChild("LOREBOOK").warning(
+                    f"Не удалось подготовить контекст Lorebook: {e}"
+                )
 
-            lorebook_context = lorebook.build_context(
-                current_message=message,
-                previous_assistant=previous_assistant,
-                earlier_messages=earlier_messages,
-            )
         except Exception as e:
             log.getChild("LOREBOOK").warning(
                 f"Не удалось подготовить контекст Lorebook: {e}"
