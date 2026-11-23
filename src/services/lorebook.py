@@ -59,16 +59,20 @@ def normalize_trigger(value: str) -> str:
     return value.strip().casefold()
 
 
-def _contains_trigger(text: str, trigger: str) -> bool:
-    """Ищет целое слово или фразу, а не часть другого слова."""
+def _trigger_position(text: str, trigger: str):
+    """Позиция первого совпадения целого слова или фразы."""
     if not text or not trigger:
-        return False
-    return re.search(
-        rf"(?<!\w){re.escape(trigger)}(?!\w)",
+        return None
+    match = re.search(
+        rf"(?<!\\w){re.escape(trigger)}(?!\\w)",
         text,
         flags=re.IGNORECASE,
-    ) is not None
+    )
+    return match.start() if match else None
 
+
+def _contains_trigger(text: str, trigger: str) -> bool:
+    return _trigger_position(text, trigger) is not None
 
 class LorebookService:
     def __init__(self, db_path=None):
