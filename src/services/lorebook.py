@@ -216,4 +216,9 @@ class LorebookService:
         self.conn.close()
 
 
-lorebook = LorebookService()
+try:
+    lorebook = LorebookService()
+except Exception as exc:
+    # Неисправная база знаний не должна мешать запуску и обычным AI-запросам.
+    logger.warning(f"Не удалось открыть базу Lorebook: {exc}")
+    lorebook = None
