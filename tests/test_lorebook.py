@@ -45,7 +45,7 @@ def test_duplicate_normalized_trigger_is_rejected(tmp_path):
                 service.conn.execute(
                     """
                     INSERT INTO lore_triggers
-                        (entry_id, trigger, normalized_trigger)
+                        (entry_id, trigger_text, normalized_trigger)
                     VALUES (?, ?, ?)
                     """,
                     (entry_id, "VELVET", "velvet"),
