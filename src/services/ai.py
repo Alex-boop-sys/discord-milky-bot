@@ -365,6 +365,9 @@ class Api:
     async def ask_ai(self, user_id, user_name, message):
         lorebook_context = None
         try:
+            if lorebook is None or not var.lorebook_enabled:
+                raise RuntimeError("Lorebook отключён или недоступен")
+
             depth = max(0, var.lorebook_scan_depth)
             recent = self.history.get_recent_messages(user_id, depth + 1)
             previous_assistant = None
