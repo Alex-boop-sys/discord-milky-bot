@@ -8,6 +8,7 @@ import aiohttp
 
 from config import env, var
 from src.services.history import history
+from src.services.lorebook import lorebook
 from src.utils.json_parser import dicts
 from src.utils.logger import log
 
@@ -60,8 +61,10 @@ class Api:
             return result[: offset + last_valid_index + 1]
         return result
 
-    def _build_messages(self, user_id, user_name, message):
-        return self.history.build_messages(user_id, user_name, message)
+    def _build_messages(self, user_id, user_name, message, lorebook_context=None):
+        return self.history.build_messages(
+            user_id, user_name, message, lorebook_context=lorebook_context
+        )
 
     def _save_response(self, user_id, text):
         return self.history.save_response(user_id, text)
@@ -360,7 +363,35 @@ class Api:
 
     # ЗАПРОС ИИ
     async def ask_ai(self, user_id, user_name, message):
-        messages = self._build_messages(user_id, user_name, message)
+        lorebook_context = None
+        if lorebook is not None and var.lorebook_enabled:
+            try:
+                depth = max(0, var.lorebook_scan_depth)
+                recent = self.history.get_recent_messages(user_id, depth + 1)
+                previous_assistant = None
+
+                # Последняя assistant-запись — предыдущий ответ Милки. Её используем
+                # как источник триггеров, но не включаем в окно проверки повторов.
+                if recent and recent[-1]["role"] == "assistant":
+                    previous_assistant = recent[-1]["content"]
+                    earlier_messages = recent[:-1][-depth:] if depth else []
+                else:
+                    # После неудачного запроса последняя запись может быть user.
+                    earlier_messages = recent[-depth:] if depth else []
+
+                lorebook_context = lorebook.build_context(
+                    current_message=message,
+                    previous_assistant=previous_assistant,
+                    earlier_messages=earlier_messages,
+                )
+            except Exception as e:
+                log.getChild("LOREBOOK").warning(
+                    f"Не удалось подготовить контекст Lorebook: {e}"
+                )
+
+        messages = self._build_messages(
+            user_id, user_name, message, lorebook_context=lorebook_context
+        )
 
         for provider, model in var.fallback_models:
             provider_name = provider.upper()

@@ -82,6 +82,7 @@ class Paths:
         # Базы и состояние отделены от ресурсов приложения.
         self.db_path = os.path.join(self.data, "history.db")
         self.economy_db = os.path.join(self.data, "economy.db")
+        self.lorebook_db = os.path.join(self.data, "lorebook.db")
         self.morning_greetings_state = os.path.join(
             self.data, "morning_greetings_state.json"
         )
@@ -215,6 +216,12 @@ class Var:
         self.ignored_prefixes = ("!", ".", "/", "-", ";", ":", "\\")
 
         self.max_history = 10
+
+        # Lorebook: контекстные знания по ключевым словам.
+        self.lorebook_enabled = True
+        self.lorebook_scan_depth = 4
+        self.lorebook_max_entries = 5
+        self.lorebook_max_chars = 6000
         self.cloudflare_timeout = 25
         self.groq_timeout = 25
         self.openrouter_timeout = 25
