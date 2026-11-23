@@ -101,7 +101,23 @@ class HistoryService:
             (user_id, user_id, var.max_history),
         )
 
-    def build_messages(self, user_id, user_name, message):
+    def get_recent_messages(self, user_id, limit):
+        """Читает последние сообщения, не изменяя историю и не выполняя её очистку."""
+        if limit <= 0:
+            return []
+        rows = self.conn.execute(
+            """
+            SELECT role, content FROM history
+            WHERE user_id = ? ORDER BY id DESC LIMIT ?
+            """,
+            (user_id, limit),
+        ).fetchall()
+        return [
+            {"role": role, "content": content}
+            for role, content in reversed(rows)
+        ]
+
+    def build_messages(self, user_id, user_name, message, lorebook_context=None):
         enriched = f"{user_name}: {message}"
         # Сообщение, счётчик и чистка старого - одной транзакцией.
         with self.conn:
@@ -125,8 +141,12 @@ class HistoryService:
         history = [
             {"role": role, "content": content} for role, content in reversed(rows)
         ]
-        # Персона хранится отдельно от истории и не удаляется при её очистке.
+        # Контекстные знания добавляются после базового промпта, перед персоной.
         system_prompt = dicts.get("def_prompt")
+        if lorebook_context:
+            system_prompt += "\n\n" + lorebook_context
+
+        # Персона хранится отдельно от истории и не удаляется при её очистке.
         persona = self.get_persona(user_id)
         if persona:
             # Не позволяем пользовательскому тексту подделать закрывающий маркер блока.
