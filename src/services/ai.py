@@ -95,7 +95,7 @@ class Api:
         payload["thinking"] = {"type": "disabled"}
 
         async with aiohttp.ClientSession() as session:
-            log.getChild("CLOUDFLARE").info(f"Попытка вызвать Cloudflare: {model}")
+            log.getChild("CLOUDFLARE").info(f"Вызов Cloudflare: {model}")
             try:
                 async with session.post(
                     url,
@@ -182,7 +182,7 @@ class Api:
         if not env.openrouter_api_key:
             return None
         async with aiohttp.ClientSession() as session:
-            log.getChild("OPENROUTER").info(f"Попытка вызвать OpenRouter: {model}")
+            log.getChild("OPENROUTER").info(f"Вызов OpenRouter: {model}")
             headers = {
                 "Authorization": f"Bearer {env.openrouter_api_key}",
                 "HTTP-Referer": "https://github.com",
@@ -238,7 +238,7 @@ class Api:
             payload["thinking"] = {"type": "disabled"}
 
         async with aiohttp.ClientSession() as session:
-            log.getChild("ZAI").info(f"Попытка вызвать Z.ai: {model}")
+            log.getChild("ZAI").info(f"Вызов Z.ai: {model}")
             try:
                 async with session.post(
                     "https://api.z.ai/api/paas/v4/chat/completions",
