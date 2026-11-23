@@ -102,3 +102,28 @@ def test_disabled_lorebook_returns_no_context(tmp_path, monkeypatch):
         assert service.build_context("velvet") is None
     finally:
         service.close()
+
+
+def test_seed_is_idempotent_and_priority_selects_higher_entry(tmp_path, monkeypatch):
+    monkeypatch.setattr(var, "lorebook_enabled", True)
+    db_path = str(tmp_path / "lorebook.db")
+    service = LorebookService(db_path)
+    try:
+        with service.conn:
+            service.conn.execute(
+                "UPDATE lore_entries SET priority = 90 WHERE title = ?",
+                ("Вояджер (SAW-07)",),
+            )
+        service.close()
+
+        service = LorebookService(db_path)
+        rows = service.conn.execute(
+            "SELECT COUNT(*) FROM lore_entries"
+        ).fetchone()[0]
+        assert rows == 2
+
+        context = service.build_context("velvet and voyager", max_entries=1)
+        assert "Вояджер (SAW-07)" in context
+        assert "Вельвет (SAW-11)" not in context
+    finally:
+        service.close()
