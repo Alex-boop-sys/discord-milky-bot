@@ -108,20 +108,6 @@ class LorebookService:
                     (entry_id, trigger, normalized),
                 )
 
-    def get_recent_entries(self, limit=4):
-        """Возвращает последние записи игрока в хронологическом порядке."""
-        rows = self.conn.execute(
-            """
-            SELECT id, title, content, priority
-            FROM lore_entries WHERE enabled = 1
-            ORDER BY id
-            """
-        ).fetchall()
-        return [
-            {"id": row[0], "title": row[1], "content": row[2], "priority": row[3]}
-            for row in rows
-        ]
-
     def build_context(
         self,
         current_message: str,
@@ -156,19 +142,30 @@ class LorebookService:
         ).fetchall()
 
         for source in sources:
+            source_matches = {}
             for entry_id, title, content, priority, trigger, normalized in entries:
-                if entry_id in seen_ids:
+                position = _trigger_position(source, normalized)
+                if position is None:
                     continue
-                if _contains_trigger(source, normalized):
-                    candidates.append(
+                previous = source_matches.get(entry_id)
+                if previous is None or position < previous[0]:
+                    source_matches[entry_id] = (
+                        position,
                         {
                             "id": entry_id,
                             "title": title,
                             "content": content,
                             "priority": priority,
-                        }
+                        },
                     )
-                    seen_ids.add(entry_id)
+
+            # Сначала более ранние совпадения в тексте; при одинаковом приоритете
+            # этот порядок сохраняется после сортировки по priority.
+            for position, item in sorted(source_matches.values(), key=lambda match: match[0]):
+                if item["id"] in seen_ids:
+                    continue
+                candidates.append(item)
+                seen_ids.add(item["id"])
 
         # Любое недавнее упоминание подавляет всю соответствующую запись.
         suppressed = set()
