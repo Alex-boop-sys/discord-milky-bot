@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS lore_entries (
 CREATE TABLE IF NOT EXISTS lore_triggers (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     entry_id            INTEGER NOT NULL REFERENCES lore_entries(id) ON DELETE CASCADE,
-    trigger             TEXT NOT NULL,
+    trigger_text        TEXT NOT NULL,
     normalized_trigger  TEXT NOT NULL UNIQUE
 );
 
@@ -102,7 +102,7 @@ class LorebookService:
                 normalized = normalize_trigger(trigger)
                 self.conn.execute(
                     """
-                    INSERT INTO lore_triggers (entry_id, trigger, normalized_trigger)
+                    INSERT INTO lore_triggers (entry_id, trigger_text, normalized_trigger)
                     VALUES (?, ?, ?)
                     """,
                     (entry_id, trigger, normalized),
@@ -147,7 +147,7 @@ class LorebookService:
         entries = self.conn.execute(
             """
             SELECT e.id, e.title, e.content, e.priority,
-                   t.trigger, t.normalized_trigger
+                   t.trigger_text, t.normalized_trigger
             FROM lore_entries e
             JOIN lore_triggers t ON t.entry_id = e.id
             WHERE e.enabled = 1
