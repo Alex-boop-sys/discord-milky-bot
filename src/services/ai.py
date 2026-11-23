@@ -389,11 +389,6 @@ class Api:
                     f"Не удалось подготовить контекст Lorebook: {e}"
                 )
 
-        except Exception as e:
-            log.getChild("LOREBOOK").warning(
-                f"Не удалось подготовить контекст Lorebook: {e}"
-            )
-
         messages = self._build_messages(
             user_id, user_name, message, lorebook_context=lorebook_context
         )
