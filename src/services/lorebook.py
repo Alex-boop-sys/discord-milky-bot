@@ -64,7 +64,7 @@ def _trigger_position(text: str, trigger: str):
     if not text or not trigger:
         return None
     match = re.search(
-        rf"(?<!\\w){re.escape(trigger)}(?!\\w)",
+        rf"(?<!\w){re.escape(trigger)}(?!\w)",
         text,
         flags=re.IGNORECASE,
     )
@@ -73,6 +73,7 @@ def _trigger_position(text: str, trigger: str):
 
 def _contains_trigger(text: str, trigger: str) -> bool:
     return _trigger_position(text, trigger) is not None
+
 
 class LorebookService:
     def __init__(self, db_path=None):
@@ -165,7 +166,9 @@ class LorebookService:
 
             # Сначала более ранние совпадения в тексте; при одинаковом приоритете
             # этот порядок сохраняется после сортировки по priority.
-            for position, item in sorted(source_matches.values(), key=lambda match: match[0]):
+            for position, item in sorted(
+                source_matches.values(), key=lambda match: match[0]
+            ):
                 if item["id"] in seen_ids:
                     continue
                 candidates.append(item)
