@@ -340,7 +340,7 @@ class Api:
             started = time.monotonic()
             try:
                 result = await self.call_provider(provider, model, messages)
-            except Exception as exc:
+            except Exception:
                 log.getChild(provider.upper()).exception(
                     f"Проверка модели {model} завершилась исключением"
                 )
@@ -402,9 +402,9 @@ class Api:
                     previous_assistant=previous_assistant,
                     earlier_messages=earlier_messages,
                 )
-            except Exception as e:
-                log.getChild("LOREBOOK").warning(
-                    f"Не удалось подготовить контекст Lorebook: {e}"
+            except Exception:
+                log.getChild("LOREBOOK").exception(
+                    "Не удалось подготовить контекст Lorebook"
                 )
 
         messages = self._build_messages(
@@ -426,7 +426,7 @@ class Api:
 
                     return self._save_response(user_id, result)
 
-            except Exception as e:
+            except Exception:
                 log.getChild(provider_name).exception(
                     f"Ошибка при обработке ответа модели {model}"
                 )
