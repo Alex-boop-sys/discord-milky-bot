@@ -88,20 +88,18 @@ class Api:
             f"https://api.cloudflare.com/client/v4/accounts/"
             f"{env.cloudflare_account_id}/ai/run/{model}"
         )
-
         payload = {
             "messages": messages,
             "max_tokens": var.max_tokens,
             "temperature": var.temperature,
             "top_p": var.top_p,
+            "thinking": {"type": "disabled"},
         }
-        payload["thinking"] = {"type": "disabled"}
-
         provider_log = log.getChild("CLOUDFLARE")
         provider_log.info(f"Запрос модели {model}")
+
         try:
             async with aiohttp.ClientSession() as session:
-            try:
                 async with session.post(
                     url,
                     headers={"Authorization": f"Bearer {env.cloudflare_api_token}"},
@@ -109,30 +107,25 @@ class Api:
                     timeout=aiohttp.ClientTimeout(total=var.cloudflare_timeout),
                 ) as response:
                     if response.status == 429:
-                        log.getChild("CLOUDFLARE").warning(
-                            "429 — дневной лимит neurons исчерпан"
+                        provider_log.warning(
+                            "HTTP 429 — дневной лимит neurons исчерпан"
                         )
                         return None
                     if response.status != 200:
-                        log.getChild("CLOUDFLARE").warning(
-                            f"Ошибка HTTP {response.status}"
+                        body = (await response.text())[:200]
+                        provider_log.warning(
+                            f"{model}: HTTP {response.status}: {body}"
                         )
                         return None
 
                     data = await response.json()
-
-                    # Cloudflare оборачивает ответ в {success, result, errors}
                     if not data.get("success"):
-                        err = data.get("errors", [{}])[0]
-                        log.getChild("CLOUDFLARE").warning(
-                            f"Ошибка API: {err.get('message', 'unknown')}"
-                        )
+                        errors = data.get("errors") or []
+                        detail = errors[0].get("message", "unknown") if errors else "unknown"
+                        provider_log.warning(f"{model}: ошибка API: {detail}")
                         return None
 
-                    # Текст ответа лежит в result.response (для instruct-моделей)
-                    result = data.get("result", {})
-                    return result.get("response")
-
+                    return data.get("result", {}).get("response")
         except asyncio.TimeoutError:
             provider_log.warning(f"{model}: таймаут ожидания ответа")
         except aiohttp.ClientError:
@@ -162,22 +155,24 @@ class Api:
             "top_p": var.top_p,
         }
         glog.info(f"Запрос модели {model}")
+
         try:
             async with session.post(
                 GROQ_URL,
                 headers=headers,
                 json=payload,  # Content-Type выставится сам
                 timeout=aiohttp.ClientTimeout(total=var.groq_timeout),
-            ) as resp:
-                if resp.status == 429:
-                    retry = resp.headers.get("retry-after")
-                    glog.warning(f"{model}: 429, retry-after={retry}")
+            ) as response:
+                if response.status == 429:
+                    retry = response.headers.get("retry-after")
+                    glog.warning(f"{model}: HTTP 429, retry-after={retry}")
                     return None
-                if resp.status != 200:
-                    body = (await resp.text())[:300]
-                    glog.warning(f"{model}: {resp.status} {body}")
+                if response.status != 200:
+                    body = (await response.text())[:200]
+                    glog.warning(f"{model}: HTTP {response.status}: {body}")
                     return None
-                data = await resp.json()
+
+                data = await response.json()
                 return data["choices"][0]["message"]["content"]
         except asyncio.TimeoutError:
             glog.warning(f"{model}: таймаут ожидания ответа")
@@ -194,24 +189,25 @@ class Api:
     async def _call_openrouter(model, messages):
         if not env.openrouter_api_key:
             return None
+
         provider_log = log.getChild("OPENROUTER")
         provider_log.info(f"Запрос модели {model}")
+        headers = {
+            "Authorization": f"Bearer {env.openrouter_api_key}",
+            "HTTP-Referer": "https://github.com",
+            "X-Title": "Expie Bot",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": var.temperature,
+            "max_tokens": var.max_tokens,
+            "top_p": var.top_p,
+        }
+
         try:
             async with aiohttp.ClientSession() as session:
-            headers = {
-                "Authorization": f"Bearer {env.openrouter_api_key}",
-                "HTTP-Referer": "https://github.com",
-                "X-Title": "Expie Bot",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": model,
-                "messages": messages,
-                "temperature": var.temperature,
-                "max_tokens": var.max_tokens,
-                "top_p": var.top_p,
-            }
-            try:
                 async with session.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     headers=headers,
@@ -224,12 +220,15 @@ class Api:
                             f"{model}: HTTP {response.status}: {body}"
                         )
                         return None
+
                     data = await response.json()
                     return data["choices"][0]["message"]["content"]
         except asyncio.TimeoutError:
             provider_log.warning(f"{model}: таймаут ожидания ответа")
         except aiohttp.ClientError:
             provider_log.exception(f"{model}: ошибка сетевого соединения")
+        except (KeyError, IndexError):
+            provider_log.exception(f"{model}: некорректная структура ответа API")
         except Exception:
             provider_log.exception(f"{model}: непредвиденная ошибка")
         return None
@@ -245,7 +244,6 @@ class Api:
             "Authorization": f"Bearer {env.zai_api_key}",
             "Content-Type": "application/json",
         }
-
         payload = {
             "model": model,
             "messages": messages,
@@ -253,15 +251,14 @@ class Api:
             "max_tokens": var.max_tokens,
             "top_p": var.top_p,
         }
-
         if model.startswith(("glm-4.5", "glm-4.7", "glm-4.8", "glm-5.")):
             payload["thinking"] = {"type": "disabled"}
 
         provider_log = log.getChild("ZAI")
         provider_log.info(f"Запрос модели {model}")
+
         try:
             async with aiohttp.ClientSession() as session:
-            try:
                 async with session.post(
                     "https://api.z.ai/api/paas/v4/chat/completions",
                     headers=headers,
@@ -269,35 +266,35 @@ class Api:
                     timeout=aiohttp.ClientTimeout(total=var.zai_timeout),
                 ) as response:
                     if response.status == 429:
-                        provider_log.warning(f"{model}: HTTP 429 — ограничение частоты запросов")
+                        provider_log.warning(
+                            f"{model}: HTTP 429 — ограничение частоты запросов"
+                        )
                         return None
                     if response.status != 200:
-                        body = await response.text()
+                        body = (await response.text())[:200]
                         provider_log.warning(
-                            f"{model}: HTTP {response.status}: {body[:200]}"
+                            f"{model}: HTTP {response.status}: {body}"
                         )
                         return None
 
                     data = await response.json()
-
                     choices = data.get("choices") or []
                     if not choices:
                         provider_log.warning(f"{model}: API вернул пустой список choices")
                         return None
 
-                    message = choices[0].get("message", {})
-                    content = message.get("content")
-
+                    content = (choices[0].get("message") or {}).get("content")
                     if not content:
                         provider_log.warning(f"{model}: API вернул пустой content")
                         return None
 
                     return content
-
         except asyncio.TimeoutError:
             provider_log.warning(f"{model}: таймаут ожидания ответа")
         except aiohttp.ClientError:
             provider_log.exception(f"{model}: ошибка сетевого соединения")
+        except (KeyError, IndexError, TypeError):
+            provider_log.exception(f"{model}: некорректная структура ответа API")
         except Exception:
             provider_log.exception(f"{model}: непредвиденная ошибка")
         return None
